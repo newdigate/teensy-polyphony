@@ -1,0 +1,22 @@
+{
+    "configurations": [
+        {
+            "name": "Mac",
+            "includePath": [
+                "${workspaceFolder}/src/**",
+                "/usr/local/include/teensy_x86_stubs",
+                "/usr/local/include/teensy_x86_sd_stubs",
+                "/usr/local/include/teensy_variable_playback",
+                "/usr/local/include/teensy_audio_x86_stubs",
+                "/Users/nicholasnewdigate/Development/github/newdigate/temp_dep/**"
+            ],
+            "defines": [],
+            "macFrameworkPath": [],
+            "compilerPath": "/usr/local/bin/gcc-11",
+            "cStandard": "gnu17",
+            "cppStandard": "gnu++17",
+            "intelliSenseMode": "macos-gcc-x64"
+        }
+    ],
+    "version": 4
+}
