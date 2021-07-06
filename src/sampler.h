@@ -33,6 +33,12 @@ public:
         _polysampler.setNumVoices(_numVoices);
     }
 
+    void addVoices(AudioPlayArrayResmp **voices, uint8_t numOfVoicesToAdd){
+        for (int i = 0; i < numOfVoicesToAdd; i++){
+            addVoice(*voices[i]);
+        }
+    }
+    
     void addVoices(AudioPlayArrayResmp *voices, uint8_t numOfVoicesToAdd){
         for (int i = 0; i < numOfVoicesToAdd; i++){
             addVoice(voices[i]);
