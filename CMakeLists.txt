@@ -16,10 +16,8 @@ if (NOT DEFINED BUILD_FOR_LINUX)
     import_arduino_library(Wire ${DEPSPATH}/Wire utility)
     import_arduino_library(arm_math ${DEPSPATH}/arm_math/src)
     import_arduino_library(Audio ${DEPSPATH}/Audio utility)
-    import_arduino_library(ST7735_t3 ${DEPSPATH}/ST7735_t3)
-    import_arduino_library(tftpianoview ${DEPSPATH}/arduino-tftpianoview/src)
+    
     import_arduino_library(TeensyVariablePlayback ${DEPSPATH}/teensy-variable-playback src)
-    import_arduino_library(USBHost_t36 ${DEPSPATH}/USBHost_t36)
     
     add_subdirectory(src)
     add_subdirectory(examples/polyphony_demo)
