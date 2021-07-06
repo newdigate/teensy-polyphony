@@ -32,6 +32,11 @@ jobs:
         with:
           repository: newdigate/teensy-x86-sd-stubs
           path: teensy-x86-sd-stubs
+      
+      - uses: actions/checkout@v2
+        with:
+          repository: newdigate/teensy-audio-x86-stubs
+          path: teensy-audio-x86-stubs
 
       - uses: actions/checkout@v2
         with:
@@ -46,6 +51,9 @@ jobs:
 
       - name: Make and Install teensy-x86-sd-stubs
         run:  cd teensy-x86-sd-stubs && mkdir cmake-build-$BUILD_TYPE && cd cmake-build-$BUILD_TYPE && cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE .. && sudo make install          
+
+      - name: Make and Install teensy-audio-x86-stubs
+        run:  cd teensy-audio-x86-stubs && mkdir cmake-build-$BUILD_TYPE && cd cmake-build-$BUILD_TYPE && cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE .. && sudo make install          
 
       - name: Make and Install teensy-variable-playback
         run:  cd teensy-variable-playback/src && mkdir cmake-build-$BUILD_TYPE && cd cmake-build-$BUILD_TYPE && cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE .. && sudo make install          
