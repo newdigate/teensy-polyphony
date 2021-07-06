@@ -1,7 +1,11 @@
+#include <Arduino.h>
+#include <MIDI.h>
 #include <Audio.h>
 #include "playsdwavresmp.h"
 #include "sampler.h"
 #include "kick_raw.h"
+
+MIDI_CREATE_DEFAULT_INSTANCE();
 
 #define NUM_VOICES 4
 // GUItool: begin automatically generated code
@@ -23,18 +27,38 @@ AudioControlSGTL5000     sgtl5000_1;     //xy=521,588
 sampler             _sampler;
 
 AudioPlayArrayResmp      *_voices[NUM_VOICES] = {&voice0, &voice1, &voice2, &voice3};
+
+void handleNoteOn(uint8_t channel, uint8_t pitch, uint8_t velocity)
+{
+    // Do whatever you want when a note is pressed.
+
+    // Try to keep your callbacks short (no delays ect)
+    // otherwise it would slow down the loop() and have a bad impact
+    // on real-time performance.
+    _sampler.noteEvent(pitch, velocity, true, false);
+}
+
+void handleNoteOff(uint8_t channel, uint8_t pitch, uint8_t velocity)
+{
+    // Do something when the note is released.
+    // Note that NoteOn messages with 0 velocity are interpreted as NoteOffs.
+    _sampler.noteEvent(pitch, velocity, false, false);
+}
+
 void setup() {
     _sampler.addVoices(_voices, NUM_VOICES);
     _sampler.begin((int16_t *)kick_raw, kick_raw_len / 2);
+
+    MIDI.setHandleNoteOn(handleNoteOn);  
+    MIDI.setHandleNoteOff(handleNoteOff);
+    MIDI.begin(MIDI_CHANNEL_OMNI);
+
+    sgtl5000_1.enable();
+    sgtl5000_1.volume(0.5);
+
+    AudioMemory(20);
 }
 
 void loop() {
-    _sampler.noteEvent(60, 128, true, false);
-    delay(1000);
-    _sampler.noteEvent(72, 128, true, false);
-    delay(1000);
-    _sampler.noteEvent(60, 128, false, false);
-    delay(1000);
-    _sampler.noteEvent(72, 128, false, false);
-    delay(1000);
+    MIDI.read();
 }

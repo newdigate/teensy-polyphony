@@ -44,7 +44,7 @@ public:
             addVoice(voices[i]);
         }
     }
-    
+
 private:
     uint8_t _numVoices = 0;
     std::vector<AudioPlayArrayResmp*> _voices;
@@ -57,10 +57,15 @@ private:
         return result;
     }
 
+    static double calcPitchFactor(uint8_t note) {
+        double result = pow(2.0, (note-36) / 12.0);
+        return result;
+    }
     void noteEventCallback(uint8_t voice, uint8_t noteNumber, uint8_t velocity, bool isNoteOn, bool retrigger)
     {
         if (voice < _numVoices) {
-            _voices[voice]->setPlaybackRate(calcFrequency(noteNumber));
+            double factor = calcPitchFactor(noteNumber);
+            _voices[voice]->setPlaybackRate(factor);
             _voices[voice]->play(_data, _numSamples);
         }
     }

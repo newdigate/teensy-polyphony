@@ -16,7 +16,8 @@ if (NOT DEFINED BUILD_FOR_LINUX)
     import_arduino_library(Wire ${DEPSPATH}/Wire utility)
     import_arduino_library(arm_math ${DEPSPATH}/arm_math/src)
     import_arduino_library(Audio ${DEPSPATH}/Audio utility)
-    
+    import_arduino_library(MIDI ${DEPSPATH}/MIDI/src)
+        
     import_arduino_library(TeensyVariablePlayback ${DEPSPATH}/teensy-variable-playback src)
     
     add_subdirectory(src)
