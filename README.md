@@ -10,6 +10,9 @@ to compile your firmware using this library, you'll need to adjust your Teensydu
     ```
 
 ## example usage
+the sketch below will use note on events from the default midi in port (Serial1) to trigger four simultaneous samples 
+there is a bit of clipping if too many samples are played, there is no velocity control or envelope yet...
+
 ``` c++
 
 #include <Arduino.h>
