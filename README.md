@@ -4,12 +4,23 @@
 
 play multi-polyphonic audio samples with teensy audio library 
 
+## using c++ std library 
+you'll need to adjust your Teensyduino ```boards.txt``` file so that libc++ is linked...  
+    ```
+    teensy41.build.flags.libs=-larm_cortexM7lfsp_math -lm -lstdc++
+    ```
+
+## example usage
+the sketch below will use note on events from the default midi in port (Serial1) to trigger four simultaneous samples 
+
+there is a bit of clipping if too many samples are played at the same time, there is no velocity or envelope yet...
+
 ``` c++
 
 #include <Arduino.h>
 #include <MIDI.h>
 #include <Audio.h>
-#include "playsdwavresmp.h"
+#include "playarrayresmp.h"
 #include "sampler.h"
 #include "piano-studio-octave0_raw.h"
 #include "piano-studio-octave1_raw.h"
