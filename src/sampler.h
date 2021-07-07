@@ -63,7 +63,7 @@ private:
     }
     void noteEventCallback(uint8_t voice, uint8_t noteNumber, uint8_t velocity, bool isNoteOn, bool retrigger)
     {
-        if (voice < _numVoices) {
+        if (isNoteOn && voice < _numVoices) {
             double factor = calcPitchFactor(noteNumber);
             _voices[voice]->setPlaybackRate(factor);
             _voices[voice]->play(_data, _numSamples);
