@@ -4,6 +4,12 @@
 
 play multi-polyphonic audio samples with teensy audio library 
 
+* Note: this library requires linking to libc++ in your Teensyduino boards.txt file
+    ```
+    teensy41.build.flags.libs=-larm_cortexM7lfsp_math -lm -lstdc++
+    ```
+
+
 ``` c++
 
 #include <Arduino.h>
