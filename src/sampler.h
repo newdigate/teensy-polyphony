@@ -4,6 +4,8 @@
 #include "polyphonicsampler.h"
 #include "playarrayresmp.h"
 #include <vector>
+#include "effect_envelope.h"
+#include "mixer.h"
 
 //template <unsigned MAX_NUM_POLYPHONY>
 class audiosample {
@@ -15,6 +17,35 @@ public:
     int16_t *_data; 
     uint32_t _sampleLength;
 private:
+};
+
+class audiovoice {
+public:
+    audiovoice(AudioPlayArrayResmp *audioplayarray, AudioEffectEnvelope *audioenvelop, AudioMixer4 *audiomixer, uint8_t mixerChannel) :
+        _audioplayarray(audioplayarray), 
+        _audioenvelop(audioenvelop),
+        _audiomixer(audiomixer),
+        _mixerChannel(mixerChannel) {
+    }
+
+    audiovoice(AudioPlayArrayResmp *audioplayarray) : 
+        _audioplayarray(audioplayarray), 
+        _audioenvelop(nullptr),
+        _audiomixer(nullptr),
+        _mixerChannel(0) {
+    }
+
+    audiovoice(AudioPlayArrayResmp *audioplayarray, AudioMixer4 *audiomixer, uint8_t mixerChannel) :
+        _audioplayarray(audioplayarray), 
+        _audioenvelop(nullptr),
+        _audiomixer(audiomixer),
+        _mixerChannel(mixerChannel) {
+    }
+
+    AudioPlayArrayResmp *_audioplayarray;
+    AudioEffectEnvelope *_audioenvelop;
+    AudioMixer4 *_audiomixer;
+    uint8_t _mixerChannel;
 };
 
 class sampler {
@@ -37,11 +68,21 @@ public:
         _audiosamples.push_back(newSample);
     }
 
-    void addVoice(AudioPlayArrayResmp &voice){
-        _voices.push_back(&voice);
-        _voices.begin();
-        _numVoices++;
-        _polysampler.setNumVoices(_numVoices);
+    void addVoice(AudioPlayArrayResmp &audioplayarrayresmp, AudioMixer4 &mixer, uint8_t mixerChannel, AudioEffectEnvelope &envelope) {
+
+        audiovoice *voice = new audiovoice(&audioplayarrayresmp, &envelope, &mixer, mixerChannel);
+        addVoice(voice) ;
+    }
+
+    void addVoice(AudioPlayArrayResmp &audioplayarrayresmp, AudioMixer4 &mixer, uint8_t mixerChannel) {
+
+        audiovoice *voice = new audiovoice(&audioplayarrayresmp, nullptr, &mixer, mixerChannel);
+        addVoice(voice) ;
+    }
+
+    void addVoice(AudioPlayArrayResmp &audioplayarrayresmp) {
+        audiovoice *voice = new audiovoice(&audioplayarrayresmp, nullptr, nullptr, 0);
+        addVoice(voice) ;
     }
 
     void addVoices(AudioPlayArrayResmp **voices, uint8_t numOfVoicesToAdd){
@@ -58,7 +99,7 @@ public:
 
 private:
     uint8_t _numVoices = 0;
-    std::vector<AudioPlayArrayResmp*> _voices;
+    std::vector<audiovoice*> _voices;
     polyphonicsampler _polysampler;
     
     std::vector<audiosample*> _audiosamples;
@@ -74,12 +115,25 @@ private:
     }
     void noteEventCallback(uint8_t voice, uint8_t noteNumber, uint8_t velocity, bool isNoteOn, bool retrigger)
     {
-        if (isNoteOn && voice < _numVoices) {
-            audiosample *nearestSample = findNearestSampleForKey(noteNumber);
-            if (nearestSample != nullptr) {
-                double factor = calcPitchFactor(noteNumber, nearestSample->_noteNumber);
-                _voices[voice]->setPlaybackRate(factor);
-                _voices[voice]->play(nearestSample->_data, nearestSample->_sampleLength);
+        if (voice < _numVoices) {
+            if (isNoteOn) {
+                audiosample *nearestSample = findNearestSampleForKey(noteNumber);
+                if (nearestSample != nullptr) {
+                    double factor = calcPitchFactor(noteNumber, nearestSample->_noteNumber);
+                    _voices[voice]->_audioplayarray->setPlaybackRate(factor);
+                    _voices[voice]->_audioplayarray->play(nearestSample->_data, nearestSample->_sampleLength);
+                    if (_voices[voice]->_audiomixer != nullptr) {                        
+                        _voices[voice]->_audiomixer->gain(_voices[voice]->_mixerChannel, velocity / 255.0);
+                    }
+                    if (_voices[voice]->_audioenvelop != nullptr) {
+                        _voices[voice]->_audioenvelop->noteOn();
+                    }
+                }
+            } else {
+                // Note off event
+                if (_voices[voice]->_audioenvelop != nullptr) {
+                    _voices[voice]->_audioenvelop->noteOff();
+                }
             }
         }
     }
@@ -96,7 +150,14 @@ private:
         }
         return candidate;
     }
+    
+    void addVoice(audiovoice *voice){
 
+        _voices.push_back(voice);
+        _voices.begin();
+        _numVoices++;
+        _polysampler.setNumVoices(_numVoices);
+    }
 };
 
 #endif
