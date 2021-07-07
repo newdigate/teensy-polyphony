@@ -9,19 +9,19 @@ MIDI_CREATE_DEFAULT_INSTANCE();
 
 #define NUM_VOICES 4
 // GUItool: begin automatically generated code
-AudioPlayArrayResmp      voice0;
-AudioPlayArrayResmp      voice1;
-AudioPlayArrayResmp      voice2;
-AudioPlayArrayResmp      voice3;
-AudioMixer4              mixer;
-AudioOutputI2S           i2s1;           //xy=675,518
-AudioConnection          patchCord1(voice0, 0,      mixer, 0);
-AudioConnection          patchCord2(voice1, 0,      mixer, 1);
-AudioConnection          patchCord3(voice2, 0,      mixer, 2);
-AudioConnection          patchCord4(voice3, 0,      mixer, 3);
-AudioConnection          patchCord5(mixer,      0,      i2s1,    0);
-AudioConnection          patchCord6(mixer,      0,      i2s1,    1);
-AudioControlSGTL5000     sgtl5000_1;     //xy=521,588
+AudioPlayArrayResmp      voice0;         //xy=339,43
+AudioPlayArrayResmp      voice1;         //xy=339,82
+AudioPlayArrayResmp      voice2;         //xy=339,124
+AudioPlayArrayResmp      voice3;         //xy=339,165
+AudioMixer4              mixer;          //xy=590,98
+AudioOutputI2S           i2s1;           //xy=818,94
+AudioConnection          patchCord1(voice0, 0, mixer, 0);
+AudioConnection          patchCord2(voice1, 0, mixer, 1);
+AudioConnection          patchCord3(voice2, 0, mixer, 2);
+AudioConnection          patchCord4(voice3, 0, mixer, 3);
+AudioConnection          patchCord5(mixer, 0, i2s1, 0);
+AudioConnection          patchCord6(mixer, 0, i2s1, 1);
+AudioControlSGTL5000     sgtl5000_1;     //xy=588,162
 // GUItool: end automatically generated code
 
 sampler             _sampler;
