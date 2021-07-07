@@ -4,7 +4,8 @@
 
 play multi-polyphonic audio samples with teensy audio library 
 
-to compile your firmware using this library, you'll need to adjust your Teensyduino ```boards.txt``` file so that libc++ is linked... 
+## using c++ std library 
+you'll need to adjust your Teensyduino ```boards.txt``` file so that libc++ is linked...  
     ```
     teensy41.build.flags.libs=-larm_cortexM7lfsp_math -lm -lstdc++
     ```
