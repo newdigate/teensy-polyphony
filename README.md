@@ -12,7 +12,8 @@ you'll need to adjust your Teensyduino ```boards.txt``` file so that libc++ is l
 
 ## example usage
 the sketch below will use note on events from the default midi in port (Serial1) to trigger four simultaneous samples 
-there is a bit of clipping if too many samples are played, there is no velocity control or envelope yet...
+
+there is a bit of clipping if too many samples are played at the same time, there is no velocity or envelope yet...
 
 ``` c++
 
