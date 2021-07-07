@@ -4,6 +4,8 @@
 
 play multi-polyphonic audio samples with teensy audio library 
 
+[youtube demo](https://youtu.be/qDfv6R2WrX4)
+
 ## using c++ std library 
 you'll need to adjust your Teensyduino ```boards.txt``` file so that libc++ is linked...  
     ```
