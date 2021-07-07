@@ -9,6 +9,9 @@ you'll need to adjust your Teensyduino ```boards.txt``` file so that libc++ is l
     ```
     teensy41.build.flags.libs=-larm_cortexM7lfsp_math -lm -lstdc++
     ```
+## dependencies
+* [teensy-variable-playback](https://github.com/newdigate/teensy-variable-playback) v1.0.6
+
 
 ## example usage
 the sketch below will use note on events from the default midi in port (Serial1) to trigger four simultaneous samples 
