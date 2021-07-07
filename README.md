@@ -11,11 +11,17 @@ play multi-polyphonic audio samples with teensy audio library
 #include <Audio.h>
 #include "playsdwavresmp.h"
 #include "sampler.h"
-#include "kick_raw.h"
+#include "piano-studio-octave0_raw.h"
+#include "piano-studio-octave1_raw.h"
+#include "piano-studio-octave2_raw.h"
 
 MIDI_CREATE_DEFAULT_INSTANCE();
 
 #define NUM_VOICES 4
+#define KEY_NOTENUMBER_C3 60
+#define KEY_NOTENUMBER_C2 48
+#define KEY_NOTENUMBER_C1 36
+
 // GUItool: begin automatically generated code
 AudioPlayArrayResmp      voice0;
 AudioPlayArrayResmp      voice1;
@@ -32,30 +38,19 @@ AudioConnection          patchCord6(mixer,      0,      i2s1,    1);
 AudioControlSGTL5000     sgtl5000_1;     //xy=521,588
 // GUItool: end automatically generated code
 
-sampler             _sampler;
-
-AudioPlayArrayResmp      *_voices[NUM_VOICES] = {&voice0, &voice1, &voice2, &voice3};
-
-void handleNoteOn(uint8_t channel, uint8_t pitch, uint8_t velocity)
-{
-    // Do whatever you want when a note is pressed.
-
-    // Try to keep your callbacks short (no delays ect)
-    // otherwise it would slow down the loop() and have a bad impact
-    // on real-time performance.
-    _sampler.noteEvent(pitch, velocity, true, false);
-}
-
-void handleNoteOff(uint8_t channel, uint8_t pitch, uint8_t velocity)
-{
-    // Do something when the note is released.
-    // Note that NoteOn messages with 0 velocity are interpreted as NoteOffs.
-    _sampler.noteEvent(pitch, velocity, false, false);
-}
+sampler                 _sampler;
+AudioPlayArrayResmp     *_voices[NUM_VOICES] = {&voice0, &voice1, &voice2, &voice3};
 
 void setup() {
+    voice0.enableInterpolation(true);
+    voice1.enableInterpolation(true);
+    voice2.enableInterpolation(true);
+    voice3.enableInterpolation(true); 
+
     _sampler.addVoices(_voices, NUM_VOICES);
-    _sampler.begin((int16_t *)kick_raw, kick_raw_len / 2);
+    _sampler.addSample(KEY_NOTENUMBER_C1, (int16_t *)piano_studio_octave0_raw, piano_studio_octave0_raw_len / 2);
+    _sampler.addSample(KEY_NOTENUMBER_C2, (int16_t *)piano_studio_octave1_raw, piano_studio_octave1_raw_len / 2);
+    _sampler.addSample(KEY_NOTENUMBER_C3, (int16_t *)piano_studio_octave2_raw, piano_studio_octave2_raw_len / 2);
 
     MIDI.setHandleNoteOn(handleNoteOn);  
     MIDI.setHandleNoteOff(handleNoteOff);
@@ -70,5 +65,16 @@ void setup() {
 void loop() {
     MIDI.read();
 }
+
+void handleNoteOn(uint8_t channel, uint8_t pitch, uint8_t velocity)
+{
+    _sampler.noteEvent(pitch, velocity, true, false);
+}
+
+void handleNoteOff(uint8_t channel, uint8_t pitch, uint8_t velocity)
+{
+    _sampler.noteEvent(pitch, velocity, false, false);
+}
+
 
 ```

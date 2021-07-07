@@ -4,10 +4,16 @@
 #include "playsdwavresmp.h"
 #include "sampler.h"
 #include "piano-studio-octave0_raw.h"
+#include "piano-studio-octave1_raw.h"
+#include "piano-studio-octave2_raw.h"
 
 MIDI_CREATE_DEFAULT_INSTANCE();
 
 #define NUM_VOICES 4
+#define KEY_NOTENUMBER_C3 60
+#define KEY_NOTENUMBER_C2 48
+#define KEY_NOTENUMBER_C1 36
+
 // GUItool: begin automatically generated code
 AudioPlayArrayResmp      voice0;         //xy=339,43
 AudioPlayArrayResmp      voice1;         //xy=339,82
@@ -46,8 +52,14 @@ void handleNoteOff(uint8_t channel, uint8_t pitch, uint8_t velocity)
 }
 
 void setup() {
+    voice0.enableInterpolation(true);
+    voice1.enableInterpolation(true);
+    voice2.enableInterpolation(true);
+    voice3.enableInterpolation(true); 
     _sampler.addVoices(_voices, NUM_VOICES);
-    _sampler.begin((int16_t *)piano_studio_octave0_raw, piano_studio_octave0_raw_len / 2);
+    _sampler.addSample(KEY_NOTENUMBER_C1, (int16_t *)piano_studio_octave0_raw, piano_studio_octave0_raw_len / 2);
+    _sampler.addSample(KEY_NOTENUMBER_C2, (int16_t *)piano_studio_octave1_raw, piano_studio_octave1_raw_len / 2);
+    _sampler.addSample(KEY_NOTENUMBER_C3, (int16_t *)piano_studio_octave2_raw, piano_studio_octave2_raw_len / 2);
 
     MIDI.setHandleNoteOn(handleNoteOn);  
     MIDI.setHandleNoteOff(handleNoteOff);
