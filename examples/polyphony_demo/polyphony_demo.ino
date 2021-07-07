@@ -3,7 +3,7 @@
 #include <Audio.h>
 #include "playsdwavresmp.h"
 #include "sampler.h"
-#include "kick_raw.h"
+#include "piano-studio-octave0_raw.h"
 
 MIDI_CREATE_DEFAULT_INSTANCE();
 
@@ -47,7 +47,7 @@ void handleNoteOff(uint8_t channel, uint8_t pitch, uint8_t velocity)
 
 void setup() {
     _sampler.addVoices(_voices, NUM_VOICES);
-    _sampler.begin((int16_t *)kick_raw, kick_raw_len / 2);
+    _sampler.begin((int16_t *)piano_studio_octave0_raw, piano_studio_octave0_raw_len / 2);
 
     MIDI.setHandleNoteOn(handleNoteOn);  
     MIDI.setHandleNoteOff(handleNoteOff);
