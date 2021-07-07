@@ -9,7 +9,7 @@ play multi-polyphonic audio samples with teensy audio library
 #include <Arduino.h>
 #include <MIDI.h>
 #include <Audio.h>
-#include "playsdwavresmp.h"
+#include "playarrayresmp.h"
 #include "sampler.h"
 #include "piano-studio-octave0_raw.h"
 #include "piano-studio-octave1_raw.h"
