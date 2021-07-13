@@ -17,11 +17,15 @@ public:
 
     void setNumVoices(uint8_t numVoices) {
         if (numVoices > _numVoices)
-            for (int i=_numVoices; i < numVoices; i++)
+            for (int i=_numVoices; i < numVoices; i++) {
               activeVoices[i] = 255;
+              voice_noteOff[i] = 0;
+            }
         else if (numVoices < _numVoices) {
-            for (int i=_numVoices; i > numVoices; i--)
+            for (int i=_numVoices; i > numVoices; i--) {
               activeVoices[i] = 255;
+              voice_noteOff[i] = 0;
+            }
         }
         _numVoices = numVoices;
     }
@@ -62,6 +66,7 @@ public:
         _noteEventFunction(index, noteNumber, 0, false, false);
         activeNotes[noteNumber] = 255;
         activeVoices[index] = 255; // free the voice
+        voice_noteOff[index] = millis();
     }
 
     void setNoteEventCallback (std::function<void(uint8_t voice, uint8_t noteNumber, uint8_t velocity, bool isNoteOn, bool retrigger)> noteEventFunction) {
@@ -84,14 +89,20 @@ private:
     uint8_t activeNotes[128];
     uint8_t activeVoices[MAX_VOICES];
     uint8_t _numVoices;
+    unsigned long voice_noteOff[MAX_VOICES];
 
     uint8_t getFirstFreeVoice() {
+        unsigned long leastRecentNoteOffEvent = UINT32_MAX;
+        uint8_t indexOfVoiceWithLeastRecentNoteOff = 255;
         for (int i=0; i < _numVoices; i++) {
             if (activeVoices[i] == 255) {
-                return i;
+                if (voice_noteOff[i] < leastRecentNoteOffEvent) {
+                    leastRecentNoteOffEvent = voice_noteOff[i];
+                    indexOfVoiceWithLeastRecentNoteOff = i;
+                }
             }
         }
-        return 255;
+        return indexOfVoiceWithLeastRecentNoteOff;
     }
 };
 
