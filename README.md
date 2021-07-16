@@ -10,8 +10,12 @@ play multi-polyphonic audio samples with teensy audio library
 
 
 ## dependencies
-* [teensy-variable-playback](https://github.com/newdigate/teensy-variable-playback) > v1.0.6
+* [teensy-variable-playback](https://github.com/newdigate/teensy-variable-playback) >= v1.0.6
 
+
+## updates
+* 16/07/2021: v1.0.2: improvement to example, use FLASHMEM instead of PROGMEM
+* 16/07/2021: v1.0.0: initial release
 
 ## example usage
 the sketch below will use note on events from the default midi in port (Serial1) to trigger four simultaneous samples 
