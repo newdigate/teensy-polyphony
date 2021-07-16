@@ -1,4 +1,4 @@
-# teensy-polyphony
+# polyphonic audio sampler for teensy
 [![teensy40](https://github.com/newdigate/teensy-polyphony/actions/workflows/teensy.yml/badge.svg)](https://github.com/newdigate/teensy-polyphony/actions/workflows/teensy.yml)
 [![Ubuntu-x64](https://github.com/newdigate/teensy-polyphony/actions/workflows/ubuntu_x64_cmake.yml/badge.svg)](https://github.com/newdigate/teensy-polyphony/actions/workflows/ubuntu_x64_cmake.yml)
 
@@ -9,13 +9,8 @@ play multi-polyphonic audio samples with teensy audio library
 [![youtube demo](https://img.youtube.com/vi/qDfv6R2WrX4/0.jpg)](https://www.youtube.com/watch?v=qDfv6R2WrX4)
 
 
-## using c++ std library 
-you'll need to adjust your Teensyduino ```boards.txt``` file so that libc++ is linked...  
-    ```
-    teensy41.build.flags.libs=-larm_cortexM7lfsp_math -lm -lstdc++
-    ```
 ## dependencies
-* [teensy-variable-playback](https://github.com/newdigate/teensy-variable-playback) v1.0.6
+* [teensy-variable-playback](https://github.com/newdigate/teensy-variable-playback) > v1.0.6
 
 
 ## example usage
