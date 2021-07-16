@@ -59,6 +59,8 @@ AudioControlSGTL5000     sgtl5000_1;     //xy=887,463
 // GUItool: end automatically generated code
 
 sampler             _sampler;
+AudioPlayArrayResmp *voices[] = {&voice1, &voice2, &voice3, &voice4, &voice5, &voice6, &voice7, &voice8};
+AudioEffectEnvelope *envelopes[] = {&envelope1, &envelope2, &envelope3, &envelope4, &envelope5, &envelope6, &envelope7, &envelope8  };
 
 void handleNoteOn(uint8_t channel, uint8_t pitch, uint8_t velocity)
 {
@@ -78,23 +80,10 @@ void handleNoteOff(uint8_t channel, uint8_t pitch, uint8_t velocity)
 }
 
 void setup() {
-    voice1.enableInterpolation(true);
-    voice2.enableInterpolation(true);
-    voice3.enableInterpolation(true);
-    voice4.enableInterpolation(true); 
-    voice5.enableInterpolation(true);
-    voice6.enableInterpolation(true);
-    voice7.enableInterpolation(true);
-    voice8.enableInterpolation(true); 
-
-    envelope1.attack(0);
-    envelope2.attack(0);
-    envelope3.attack(0);
-    envelope4.attack(0);
-    envelope5.attack(0);
-    envelope6.attack(0);
-    envelope7.attack(0);
-    envelope8.attack(0);
+    for (int i=0; i<8; i++) {
+        voices[i]->enableInterpolation(true);
+        envelopes[i]->attack(0);
+    }
 
     _sampler.addVoice( voice1, mixer1, 0, envelope1);
     _sampler.addVoice( voice2, mixer1, 1, envelope2);
