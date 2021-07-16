@@ -1,8 +1,8 @@
 #include <Arduino.h>
 #include <MIDI.h>
 #include <Audio.h>
-#include "playsdwavresmp.h"
-#include "sampler.h"
+#include <TeensyVariablePlayback.h>
+#include <TeensyAudioSampler.h>
 #include "piano-studio-octave0_raw.h"
 #include "piano-studio-octave1_raw.h"
 #include "piano-studio-octave2_raw.h"
@@ -64,18 +64,11 @@ AudioEffectEnvelope *envelopes[] = {&envelope1, &envelope2, &envelope3, &envelop
 
 void handleNoteOn(uint8_t channel, uint8_t pitch, uint8_t velocity)
 {
-    // Do whatever you want when a note is pressed.
-
-    // Try to keep your callbacks short (no delays ect)
-    // otherwise it would slow down the loop() and have a bad impact
-    // on real-time performance.
     _sampler.noteEvent(pitch, velocity, true, false);
 }
 
 void handleNoteOff(uint8_t channel, uint8_t pitch, uint8_t velocity)
 {
-    // Do something when the note is released.
-    // Note that NoteOn messages with 0 velocity are interpreted as NoteOffs.
     _sampler.noteEvent(pitch, velocity, false, false);
 }
 
