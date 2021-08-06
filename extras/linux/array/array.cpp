@@ -28,7 +28,7 @@ void setup() {
     sgtl5000_1.volume(0.5f, 0.5f);
     
     _sampler.addVoices(_voices, NUM_VOICES);
-    _sampler.addSample(KEY_NOTENUMBER_C1, (int16_t *)kick_raw, kick_raw_len / 2);
+    _sampler.addSample(KEY_NOTENUMBER_C1, (int16_t *)kick_raw, kick_raw_len / 2, 1);
     
     Serial.println("setup done");
 }
