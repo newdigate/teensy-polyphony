@@ -32,12 +32,13 @@
 //template <unsigned MAX_NUM_POLYPHONY>
 class audiosample {
 public:
-    audiosample(uint8_t noteNumber, int16_t *data, uint32_t sampleLength) : _noteNumber(noteNumber), _data(data), _sampleLength(sampleLength) {
+    audiosample(uint8_t noteNumber, int16_t *data, uint32_t sampleLength, uint16_t numChannels) : _noteNumber(noteNumber), _data(data), _sampleLength(sampleLength), _numChannels(numChannels) {
     }
 
     uint8_t _noteNumber;    
     int16_t *_data; 
     uint32_t _sampleLength;
+    uint16_t _numChannels;
 private:
 };
 
@@ -105,8 +106,8 @@ public:
             _polysampler.noteOff(noteNumber);
     }
 
-    void addSample(uint8_t noteNumber, int16_t *data, uint32_t sampleLength) {
-        audiosample *newSample = new audiosample(noteNumber, data, sampleLength);
+    void addSample(uint8_t noteNumber, int16_t *data, uint32_t sampleLength, uint16_t numChannels) {
+        audiosample *newSample = new audiosample(noteNumber, data, sampleLength, numChannels);
         _audiosamples.push_back(newSample);
     }
     void addVoice(AudioPlayArrayResmp &audioplayarrayresmp, AudioMixer4 &mixer, uint8_t mixerChannel, AudioEffectEnvelope &envelope, AudioMixer4 &mixer2, uint8_t mixerChannel2, AudioEffectEnvelope &envelope2) {
@@ -182,7 +183,7 @@ private:
                     if (_voices[voice]->_audioenvelop2 != nullptr) {
                         _voices[voice]->_audioenvelop2->noteOn();
                     }
-                    _voices[voice]->_audioplayarray->play(nearestSample->_data, nearestSample->_sampleLength);
+                    _voices[voice]->_audioplayarray->playRaw(nearestSample->_data, nearestSample->_sampleLength, nearestSample->_numChannels);
                 }
             } else {
                 // Note off event
