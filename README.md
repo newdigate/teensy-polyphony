@@ -14,6 +14,7 @@ play multi-polyphonic audio samples with teensy audio library
 
 
 ## updates
+* 10/08/2021: added string sampler and common header
 * 16/07/2021: v1.0.2: improvement to example, use FLASHMEM instead of PROGMEM
 * 16/07/2021: v1.0.0: initial release
 
