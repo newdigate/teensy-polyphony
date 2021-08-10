@@ -24,5 +24,6 @@
 
 #include "polyphonicsampler.h"
 #include "sampler.h"
+#include "stringsampler.h"
 
 #endif TEENSYPOLYPHONY_TEENSYAUDIOSAMPLER_H
