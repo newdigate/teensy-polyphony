@@ -30,6 +30,11 @@
 
 class stringvoice {
 public:
+    stringvoice(AudioSynthKarplusStrong *strings) :
+        _envelop(nullptr),
+        _strings(strings) {
+    }
+
     stringvoice(AudioSynthKarplusStrong *strings, AudioEffectEnvelope *envelop) :
         _envelop(envelop), 
         _strings(strings) {
@@ -52,6 +57,11 @@ public:
             _polysampler.noteOn(noteNumber, velocity);
         else 
             _polysampler.noteOff(noteNumber);
+    }
+    
+    void addVoice(AudioSynthKarplusStrong  &strings) {
+        stringvoice *voice = new stringvoice(&strings);
+        addVoice(voice) ;
     }
     
     void addVoice(AudioSynthKarplusStrong  &strings, AudioEffectEnvelope &envelope) {
