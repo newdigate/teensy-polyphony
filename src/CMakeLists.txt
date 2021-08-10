@@ -4,10 +4,12 @@ project(teensypolyphony C CXX)
 
 set(SOURCE_FILES
 		sampler.cpp
+		stringsampler.cpp
 		polyphonicsampler.cpp)
 
 set(HEADER_FILES
 		sampler.h
+		stringsampler.h
 		polyphonicsampler.h)
 
 if (NOT DEFINED TEENSY_VERSION)
