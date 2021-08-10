@@ -59,6 +59,10 @@ public:
         addVoice(voice) ;
     }
 
+    void turnOffAllNotesStillPlaying() {
+        _polysampler.turnOffAllNotesStillPlaying();
+    }
+
 private:
     uint8_t _numVoices = 0;
     std::vector<stringvoice*> _voices;
