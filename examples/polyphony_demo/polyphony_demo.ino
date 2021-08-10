@@ -2,7 +2,7 @@
 #include <MIDI.h>
 #include <Audio.h>
 #include <TeensyVariablePlayback.h>
-#include <TeensyAudioSampler.h>
+#include <TeensyPolyphony.h>
 #include "piano-studio-octave0_raw.h"
 #include "piano-studio-octave1_raw.h"
 #include "piano-studio-octave2_raw.h"
