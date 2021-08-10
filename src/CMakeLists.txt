@@ -10,7 +10,8 @@ set(SOURCE_FILES
 set(HEADER_FILES
 		sampler.h
 		stringsampler.h
-		polyphonicsampler.h)
+		polyphonicsampler.h
+		TeensyPolyphony.h)
 
 if (NOT DEFINED TEENSY_VERSION)
 	include(CMakeLists.linux.cmake)
