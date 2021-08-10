@@ -14,7 +14,10 @@ play multi-polyphonic audio samples with teensy audio library
 
 
 ## updates
-* 10/08/2021: added string sampler and common header
+* 10/08/2021: v1.0.3:
+  * **changed library name** to ```TeensyPolyphony```
+  * added ability to play samples from .wav and .raw files
+  * added string sampler and common header
 * 16/07/2021: v1.0.2: improvement to example, use FLASHMEM instead of PROGMEM
 * 16/07/2021: v1.0.0: initial release
 

@@ -1,11 +1,11 @@
 {
-    "name": "TeensyAudioSampler",
+    "name": "TeensyPolyphony",
     "frameworks": "Arduino",
     "platforms": "Teensy",
     "keywords": "sound, audio, sd, flash, sample, sampler, polyphony, phoyphonic",
     "description": "play multi-polyphonic audio samples with teensy audio library",
     "url": "https://github.com/newdigate/teensy-polyphony",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "export": {
       "exclude": [
         ".vscode",
