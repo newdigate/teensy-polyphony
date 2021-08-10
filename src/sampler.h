@@ -23,8 +23,8 @@
 #ifndef TEENSY_AUDIO_SAMPLER_H
 #define TEENSY_AUDIO_SAMPLER_H
 
+#include <TeensyVariablePlayback.h>
 #include "polyphonicsampler.h"
-#include "playarrayresmp.h"
 #include <vector>
 #include "effect_envelope.h"
 #include "mixer.h"
@@ -32,19 +32,47 @@
 //template <unsigned MAX_NUM_POLYPHONY>
 class audiosample {
 public:
-    audiosample(uint8_t noteNumber, int16_t *data, uint32_t sampleLength, uint16_t numChannels) : _noteNumber(noteNumber), _data(data), _sampleLength(sampleLength), _numChannels(numChannels) {
+    audiosample(uint8_t noteNumber, int16_t *data, uint32_t sampleLength, uint16_t numChannels) : 
+        _noteNumber(noteNumber), 
+        _data(data), 
+        _sampleLength(sampleLength), 
+        _numChannels(numChannels) {
+    }
+
+    audiosample(uint8_t noteNumber, const char *filename, uint16_t numChannels) : 
+        _noteNumber(noteNumber), 
+        _data(nullptr), 
+        _sampleLength(0), 
+        _numChannels(numChannels),
+        _filename(filename),
+        _isSdFile(true),
+        _isWavFile(false) {
+    }
+
+    audiosample(uint8_t noteNumber, const char *filename) : 
+        _noteNumber(noteNumber), 
+        _data(nullptr), 
+        _sampleLength(0), 
+        _numChannels(0),
+        _filename(filename),
+        _isSdFile(true),
+        _isWavFile(true) {
     }
 
     uint8_t _noteNumber;    
     int16_t *_data; 
     uint32_t _sampleLength;
     uint16_t _numChannels;
+
+    bool _isSdFile = false; // is this sample a file or an array
+    bool _isWavFile = false; // is the file wav or raw format
+    const char *_filename;
 private:
 };
 
 class audiovoice {
 public:
-    audiovoice(AudioPlayArrayResmp *audioplayarray, AudioEffectEnvelope *audioenvelop,  AudioEffectEnvelope *audioenvelop2, AudioMixer4 *audiomixer, AudioMixer4 *audiomixer2, uint8_t mixerChannel, uint8_t mixerChannel2) :
+    audiovoice(AudioPlayResmp *audioplayarray, AudioEffectEnvelope *audioenvelop,  AudioEffectEnvelope *audioenvelop2, AudioMixer4 *audiomixer, AudioMixer4 *audiomixer2, uint8_t mixerChannel, uint8_t mixerChannel2) :
         _audioplayarray(audioplayarray), 
         _audioenvelop(audioenvelop),
         _audioenvelop2(audioenvelop2),
@@ -55,7 +83,7 @@ public:
         _isStereo(true) {
     }
 
-    audiovoice(AudioPlayArrayResmp *audioplayarray, AudioEffectEnvelope *audioenvelop, AudioMixer4 *audiomixer, uint8_t mixerChannel) :
+    audiovoice(AudioPlayResmp *audioplayarray, AudioEffectEnvelope *audioenvelop, AudioMixer4 *audiomixer, uint8_t mixerChannel) :
         _audioplayarray(audioplayarray), 
         _audioenvelop(audioenvelop),
         _audiomixer(audiomixer),
@@ -63,23 +91,23 @@ public:
     {
     }
 
-    audiovoice(AudioPlayArrayResmp *audioplayarray) : 
+    audiovoice(AudioPlayResmp *audioplayarray) : 
         _audioplayarray(audioplayarray) {
     }
 
-    audiovoice(AudioPlayArrayResmp *audioplayarray, AudioMixer4 *audiomixer, uint8_t mixerChannel) :
+    audiovoice(AudioPlayResmp *audioplayarray, AudioMixer4 *audiomixer, uint8_t mixerChannel) :
         _audioplayarray(audioplayarray), 
         _audiomixer(audiomixer),
         _mixerChannel(mixerChannel) {
     }
-    audiovoice(AudioPlayArrayResmp *audioplayarray, AudioMixer4 *audiomixer, uint8_t mixerChannel, AudioMixer4 *audiomixer2, uint8_t mixerChannel2) :
+    audiovoice(AudioPlayResmp *audioplayarray, AudioMixer4 *audiomixer, uint8_t mixerChannel, AudioMixer4 *audiomixer2, uint8_t mixerChannel2) :
         _audioplayarray(audioplayarray), 
         _audiomixer(audiomixer),
         _audiomixer2(audiomixer2),
         _mixerChannel(mixerChannel),
         _mixerChannel2(mixerChannel2) {
     }
-    AudioPlayArrayResmp *_audioplayarray = nullptr;
+    AudioPlayResmp *_audioplayarray = nullptr;
 
     AudioEffectEnvelope *_audioenvelop = nullptr;
     AudioEffectEnvelope *_audioenvelop2 = nullptr;
@@ -183,7 +211,14 @@ private:
                     if (_voices[voice]->_audioenvelop2 != nullptr) {
                         _voices[voice]->_audioenvelop2->noteOn();
                     }
-                    _voices[voice]->_audioplayarray->playRaw(nearestSample->_data, nearestSample->_sampleLength, nearestSample->_numChannels);
+
+                    if (!nearestSample->_isSdFile) {
+                        ((AudioPlayArrayResmp*)(_voices[voice]->_audioplayarray))->playRaw(nearestSample->_data, nearestSample->_sampleLength, nearestSample->_numChannels);
+                    } else if (nearestSample->_isWavFile) {
+                        ((AudioPlaySdResmp*)(_voices[voice]->_audioplayarray))->playWav(nearestSample->_filename);
+                    }else {
+                        ((AudioPlaySdResmp*)(_voices[voice]->_audioplayarray))->playRaw(nearestSample->_filename, nearestSample->_numChannels);
+                    }
                 }
             } else {
                 // Note off event
