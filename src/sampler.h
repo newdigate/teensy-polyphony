@@ -299,4 +299,15 @@ class unpitchedsdrawsampler : public basesampler<AudioPlaySdRaw, UnpitchedSdRawS
 
 };
 
+class UnpitchedMemorySamplePlay {
+public:
+    static void play(audiovoice<AudioPlayMemory> *voice, audiosample *sample) {
+        voice->_audioplayarray->play((const unsigned int*)sample->_data);
+    }
+};
+
+class unpitchedmemorysampler : public basesampler<AudioPlayMemory, UnpitchedMemorySamplePlay> {
+
+};
+
 #endif
