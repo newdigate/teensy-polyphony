@@ -14,7 +14,9 @@ play multi-polyphonic audio samples with teensy audio library
 
 
 ## updates
-* 10/08/2021: v1.0.3:
+* 11/08/2021:
+  * ability to play non pitched samples using AudioPlaySdRaw and AudioPlaySdWav 
+* 10/08/2021: 
   * **changed library name** to ```TeensyPolyphony```
   * added ability to play samples from .wav and .raw files
   * added string sampler and common header
