@@ -190,12 +190,12 @@ public:
     }
 
     void addVoice(TAudioPlay &audioplayarrayresmp, AudioEffectEnvelope &envelope) {
-        audiovoice<TAudioPlay> *voice = new audiovoice<TAudioPlay>(&audioplayarrayresmp, envelope);
+        audiovoice<TAudioPlay> *voice = new audiovoice<TAudioPlay>(&audioplayarrayresmp, &envelope);
         addVoice(voice) ;
     }
 
     void addVoice(TAudioPlay &audioplayarrayresmp, AudioEffectEnvelope &envelope1, AudioEffectEnvelope &envelope2) {
-        audiovoice<TAudioPlay> *voice = new audiovoice<TAudioPlay>(&audioplayarrayresmp, envelope1, envelope2);
+        audiovoice<TAudioPlay> *voice = new audiovoice<TAudioPlay>(&audioplayarrayresmp, &envelope1, &envelope2);
         addVoice(voice) ;
     }
 
