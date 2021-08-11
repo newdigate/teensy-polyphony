@@ -58,7 +58,7 @@ AudioConnection          patchCord20(mixer3, 0, i2s1, 1);
 AudioControlSGTL5000     sgtl5000_1;     //xy=887,463
 // GUItool: end automatically generated code
 
-sampler             _sampler;
+arraysampler             _sampler;
 AudioPlayArrayResmp *voices[] = {&voice1, &voice2, &voice3, &voice4, &voice5, &voice6, &voice7, &voice8};
 AudioEffectEnvelope *envelopes[] = {&envelope1, &envelope2, &envelope3, &envelope4, &envelope5, &envelope6, &envelope7, &envelope8  };
 

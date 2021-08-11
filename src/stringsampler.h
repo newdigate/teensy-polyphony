@@ -83,11 +83,6 @@ private:
         return result;
     }
 
-    static float calcPitchFactor(uint8_t note, uint8_t rootNoteNumber) {
-        float result = powf(2.0, (note-rootNoteNumber) / 12.0);
-        return result;
-    }
-
     void noteEventCallback(uint8_t voice, uint8_t noteNumber, uint8_t velocity, bool isNoteOn, bool retrigger)
     {
         if (voice < _numVoices) {

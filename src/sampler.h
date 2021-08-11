@@ -70,9 +70,10 @@ public:
 private:
 };
 
+template <class TAudioPlay>
 class audiovoice {
 public:
-    audiovoice(AudioPlayResmp *audioplayarray, AudioEffectEnvelope *audioenvelop,  AudioEffectEnvelope *audioenvelop2, AudioMixer4 *audiomixer, AudioMixer4 *audiomixer2, uint8_t mixerChannel, uint8_t mixerChannel2) :
+    audiovoice(TAudioPlay *audioplayarray, AudioEffectEnvelope *audioenvelop,  AudioEffectEnvelope *audioenvelop2, AudioMixer4 *audiomixer, AudioMixer4 *audiomixer2, uint8_t mixerChannel, uint8_t mixerChannel2) :
         _audioplayarray(audioplayarray), 
         _audioenvelop(audioenvelop),
         _audioenvelop2(audioenvelop2),
@@ -83,7 +84,7 @@ public:
         _isStereo(true) {
     }
 
-    audiovoice(AudioPlayResmp *audioplayarray, AudioEffectEnvelope *audioenvelop, AudioMixer4 *audiomixer, uint8_t mixerChannel) :
+    audiovoice(TAudioPlay *audioplayarray, AudioEffectEnvelope *audioenvelop, AudioMixer4 *audiomixer, uint8_t mixerChannel) :
         _audioplayarray(audioplayarray), 
         _audioenvelop(audioenvelop),
         _audiomixer(audiomixer),
@@ -91,23 +92,23 @@ public:
     {
     }
 
-    audiovoice(AudioPlayResmp *audioplayarray) : 
+    audiovoice(TAudioPlay *audioplayarray) : 
         _audioplayarray(audioplayarray) {
     }
 
-    audiovoice(AudioPlayResmp *audioplayarray, AudioMixer4 *audiomixer, uint8_t mixerChannel) :
+    audiovoice(TAudioPlay *audioplayarray, AudioMixer4 *audiomixer, uint8_t mixerChannel) :
         _audioplayarray(audioplayarray), 
         _audiomixer(audiomixer),
         _mixerChannel(mixerChannel) {
     }
-    audiovoice(AudioPlayResmp *audioplayarray, AudioMixer4 *audiomixer, uint8_t mixerChannel, AudioMixer4 *audiomixer2, uint8_t mixerChannel2) :
+    audiovoice(TAudioPlay *audioplayarray, AudioMixer4 *audiomixer, uint8_t mixerChannel, AudioMixer4 *audiomixer2, uint8_t mixerChannel2) :
         _audioplayarray(audioplayarray), 
         _audiomixer(audiomixer),
         _audiomixer2(audiomixer2),
         _mixerChannel(mixerChannel),
         _mixerChannel2(mixerChannel2) {
     }
-    AudioPlayResmp *_audioplayarray = nullptr;
+    TAudioPlay *_audioplayarray = nullptr;
 
     AudioEffectEnvelope *_audioenvelop = nullptr;
     AudioEffectEnvelope *_audioenvelop2 = nullptr;
@@ -119,9 +120,18 @@ public:
     bool _isStereo = false;
 };
 
-class sampler {
+class relativepitchcalculator {
 public:
-    sampler() : _polysampler() {
+    static float calcPitchFactor(uint8_t note, uint8_t rootNoteNumber) {
+        float result = powf(2.0, (note-rootNoteNumber) / 12.0);
+        return result;
+    }
+};
+
+template<class TAudioPlay, class TSamplePlay>
+class basesampler {
+public:
+    basesampler() : _polysampler() {
         _polysampler.setNoteEventCallback( [&] (uint8_t voice, uint8_t noteNumber, uint8_t velocity, bool isNoteOn, bool retrigger) {
             noteEventCallback(voice, noteNumber, velocity, isNoteOn, retrigger);
         });
@@ -138,36 +148,30 @@ public:
         audiosample *newSample = new audiosample(noteNumber, data, sampleLength, numChannels);
         _audiosamples.push_back(newSample);
     }
-    void addVoice(AudioPlayArrayResmp &audioplayarrayresmp, AudioMixer4 &mixer, uint8_t mixerChannel, AudioEffectEnvelope &envelope, AudioMixer4 &mixer2, uint8_t mixerChannel2, AudioEffectEnvelope &envelope2) {
-
-        audiovoice *voice = new audiovoice(&audioplayarrayresmp, &envelope, &envelope2, &mixer, &mixer2, mixerChannel, mixerChannel2);
+    void addVoice(TAudioPlay &audioplayarrayresmp, AudioMixer4 &mixer, uint8_t mixerChannel, AudioEffectEnvelope &envelope, AudioMixer4 &mixer2, uint8_t mixerChannel2, AudioEffectEnvelope &envelope2) {
+        audiovoice<TAudioPlay> *voice = new audiovoice<TAudioPlay>(&audioplayarrayresmp, &envelope, &envelope2, &mixer, &mixer2, mixerChannel, mixerChannel2);
         addVoice(voice) ;
     }
+    void addVoice(TAudioPlay &audioplayarrayresmp, AudioMixer4 &mixer, uint8_t mixerChannel, AudioEffectEnvelope &envelope) {
 
-    void addVoice(AudioPlayArrayResmp &audioplayarrayresmp, AudioMixer4 &mixer, uint8_t mixerChannel, AudioEffectEnvelope &envelope) {
-
-        audiovoice *voice = new audiovoice(&audioplayarrayresmp, &envelope, &mixer, mixerChannel);
+        audiovoice<TAudioPlay> *voice = new audiovoice<TAudioPlay>(&audioplayarrayresmp, &envelope, &mixer, mixerChannel);
         addVoice(voice) ;
     }
+    void addVoice(TAudioPlay &audioplayarrayresmp, AudioMixer4 &mixer, uint8_t mixerChannel) {
 
-    void addVoice(AudioPlayArrayResmp &audioplayarrayresmp, AudioMixer4 &mixer, uint8_t mixerChannel) {
-
-        audiovoice *voice = new audiovoice(&audioplayarrayresmp, nullptr, &mixer, mixerChannel);
+        audiovoice<TAudioPlay> *voice = new audiovoice<TAudioPlay>(&audioplayarrayresmp, nullptr, &mixer, mixerChannel);
         addVoice(voice) ;
     }
-
-    void addVoice(AudioPlayArrayResmp &audioplayarrayresmp) {
-        audiovoice *voice = new audiovoice(&audioplayarrayresmp, nullptr, nullptr, 0);
+    void addVoice(TAudioPlay &audioplayarrayresmp) {
+        audiovoice<TAudioPlay> *voice = new audiovoice<TAudioPlay>(&audioplayarrayresmp, nullptr, nullptr, 0);
         addVoice(voice) ;
     }
-
-    void addVoices(AudioPlayArrayResmp **voices, uint8_t numOfVoicesToAdd){
+    void addVoices(TAudioPlay **voices, uint8_t numOfVoicesToAdd){
         for (int i = 0; i < numOfVoicesToAdd; i++){
             addVoice(*voices[i]);
         }
     }
-    
-    void addVoices(AudioPlayArrayResmp *voices, uint8_t numOfVoicesToAdd){
+    void addVoices(TAudioPlay *voices, uint8_t numOfVoicesToAdd){
         for (int i = 0; i < numOfVoicesToAdd; i++){
             addVoice(voices[i]);
         }
@@ -175,20 +179,10 @@ public:
 
 private:
     uint8_t _numVoices = 0;
-    std::vector<audiovoice*> _voices;
+    std::vector<audiovoice<TAudioPlay>*> _voices;
     polyphonicsampler _polysampler;
     
     std::vector<audiosample*> _audiosamples;
-
-    static float calcFrequency(uint8_t note) {
-        float result = 440.0 * powf(2.0, (note-69) / 12.0);
-        return result;
-    }
-
-    static float calcPitchFactor(uint8_t note, uint8_t rootNoteNumber) {
-        float result = powf(2.0, (note-rootNoteNumber) / 12.0);
-        return result;
-    }
 
     void noteEventCallback(uint8_t voice, uint8_t noteNumber, uint8_t velocity, bool isNoteOn, bool retrigger)
     {
@@ -196,8 +190,6 @@ private:
             if (isNoteOn) {
                 audiosample *nearestSample = findNearestSampleForKey(noteNumber);
                 if (nearestSample != nullptr) {
-                    float factor = calcPitchFactor(noteNumber, nearestSample->_noteNumber);
-                    _voices[voice]->_audioplayarray->setPlaybackRate(factor);
                     
                     if (_voices[voice]->_audiomixer != nullptr) {                        
                         _voices[voice]->_audiomixer->gain(_voices[voice]->_mixerChannel, velocity / 255.0);
@@ -211,14 +203,7 @@ private:
                     if (_voices[voice]->_audioenvelop2 != nullptr) {
                         _voices[voice]->_audioenvelop2->noteOn();
                     }
-
-                    if (!nearestSample->_isSdFile) {
-                        ((AudioPlayArrayResmp*)(_voices[voice]->_audioplayarray))->playRaw(nearestSample->_data, nearestSample->_sampleLength, nearestSample->_numChannels);
-                    } else if (nearestSample->_isWavFile) {
-                        ((AudioPlaySdResmp*)(_voices[voice]->_audioplayarray))->playWav(nearestSample->_filename);
-                    }else {
-                        ((AudioPlaySdResmp*)(_voices[voice]->_audioplayarray))->playRaw(nearestSample->_filename, nearestSample->_numChannels);
-                    }
+                    TSamplePlay::play(noteNumber, _voices[voice], nearestSample);
                 }
             } else {
                 // Note off event
@@ -247,13 +232,71 @@ private:
         return candidate;
     }
     
-    void addVoice(audiovoice *voice){
+    void addVoice(audiovoice<TAudioPlay> *voice){
 
         _voices.push_back(voice);
         _voices.begin();
         _numVoices++;
         _polysampler.setNumVoices(_numVoices);
     }
+};
+
+class PitchedArraySamplePlay {
+public:
+    static void play(uint8_t noteNumber, audiovoice<AudioPlayArrayResmp> *voice, audiosample *sample) {
+        float factor = relativepitchcalculator::calcPitchFactor(noteNumber, sample->_noteNumber);
+        voice->_audioplayarray->setPlaybackRate(factor);
+        voice->_audioplayarray->playRaw(sample->_data, sample->_sampleLength, sample->_numChannels);
+    }
+};
+
+class PitchedSdWavSamplePlay {
+public:
+    static void play(uint8_t noteNumber, audiovoice<AudioPlaySdResmp> *voice, audiosample *sample) {
+        float factor = relativepitchcalculator::calcPitchFactor(noteNumber, sample->_noteNumber);
+        voice->_audioplayarray->setPlaybackRate(factor);
+        voice->_audioplayarray->playWav(sample->_filename);
+    }
+};
+
+class PitchedSdRawSamplePlay {
+public:
+    static void play(uint8_t noteNumber, audiovoice<AudioPlaySdResmp> *voice, audiosample *sample) {
+        float factor = relativepitchcalculator::calcPitchFactor(noteNumber, sample->_noteNumber);
+        voice->_audioplayarray->setPlaybackRate(factor);
+        voice->_audioplayarray->playWav(sample->_filename);
+    }
+};
+
+class arraysampler : public basesampler<AudioPlayArrayResmp, PitchedArraySamplePlay> {
+};
+
+class sdwavsampler : public basesampler<AudioPlaySdResmp, PitchedSdWavSamplePlay> {
+};
+
+class sdrawsampler : public basesampler<AudioPlaySdResmp, PitchedSdRawSamplePlay> {
+};
+
+class UnpitchedSdWavSamplePlay {
+public:
+    static void play(audiovoice<AudioPlaySdWav> *voice, audiosample *sample) {
+        voice->_audioplayarray->play(sample->_filename);
+    }
+};
+
+class UnpitchedSdRawSamplePlay {
+public:
+    static void play(audiovoice<AudioPlaySdRaw> *voice, audiosample *sample) {
+        voice->_audioplayarray->play(sample->_filename);
+    }
+};
+
+class unpitchedsdwavsampler : public basesampler<AudioPlaySdWav, UnpitchedSdWavSamplePlay> {
+
+};
+
+class unpitchedsdrawsampler : public basesampler<AudioPlaySdRaw, UnpitchedSdRawSamplePlay> {
+
 };
 
 #endif

@@ -16,7 +16,7 @@ AudioConnection          patchCord2(_voices[1], 0, i2s1, 1);
 AudioControlSGTL5000     sgtl5000_1;     //xy=521,588
 // GUItool: end automatically generated code
 
-sampler                 _sampler;
+arraysampler             _sampler;
 
 extern unsigned int kick_raw_len;
 extern unsigned char kick_raw[];
