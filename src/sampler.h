@@ -92,6 +92,23 @@ public:
     {
     }
 
+    audiovoice(TAudioPlay *audioplayarray, AudioEffectEnvelope *audioenvelop) :
+        _audioplayarray(audioplayarray), 
+        _audioenvelop(audioenvelop),
+        _audiomixer(nullptr),
+        _mixerChannel(0)
+    {
+    }
+
+    audiovoice(TAudioPlay *audioplayarray, AudioEffectEnvelope *audioenvelop1, AudioEffectEnvelope *audioenvelop2) :
+        _audioplayarray(audioplayarray), 
+        _audioenvelop(audioenvelop1),
+        _audioenvelop2(audioenvelop2),
+        _audiomixer(nullptr),
+        _mixerChannel(0)
+    {
+    }
+
     audiovoice(TAudioPlay *audioplayarray) : 
         _audioplayarray(audioplayarray) {
     }
@@ -171,6 +188,17 @@ public:
         audiovoice<TAudioPlay> *voice = new audiovoice<TAudioPlay>(&audioplayarrayresmp, nullptr, nullptr, 0);
         addVoice(voice) ;
     }
+
+    void addVoice(TAudioPlay &audioplayarrayresmp, AudioEffectEnvelope &envelope) {
+        audiovoice<TAudioPlay> *voice = new audiovoice<TAudioPlay>(&audioplayarrayresmp, envelope);
+        addVoice(voice) ;
+    }
+
+    void addVoice(TAudioPlay &audioplayarrayresmp, AudioEffectEnvelope &envelope1, AudioEffectEnvelope &envelope2) {
+        audiovoice<TAudioPlay> *voice = new audiovoice<TAudioPlay>(&audioplayarrayresmp, envelope1, envelope2);
+        addVoice(voice) ;
+    }
+
     void addVoices(TAudioPlay **voices, uint8_t numOfVoicesToAdd){
         for (int i = 0; i < numOfVoicesToAdd; i++){
             addVoice(*voices[i]);
