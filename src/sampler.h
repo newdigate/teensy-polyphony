@@ -312,14 +312,14 @@ class sdrawsampler : public basesampler<AudioPlaySdResmp, PitchedSdRawSamplePlay
 
 class UnpitchedSdWavSamplePlay {
 public:
-    static void play(audiovoice<AudioPlaySdWav> *voice, audiosample *sample) {
+    static void play(uint8_t noteNumber, audiovoice<AudioPlaySdWav> *voice, audiosample *sample) {
         voice->_audioplayarray->play(sample->_filename);
     }
 };
 
 class UnpitchedSdRawSamplePlay {
 public:
-    static void play(audiovoice<AudioPlaySdRaw> *voice, audiosample *sample) {
+    static void play(uint8_t noteNumber, audiovoice<AudioPlaySdRaw> *voice, audiosample *sample) {
         voice->_audioplayarray->play(sample->_filename);
     }
 };
@@ -334,7 +334,7 @@ class unpitchedsdrawsampler : public basesampler<AudioPlaySdRaw, UnpitchedSdRawS
 
 class UnpitchedMemorySamplePlay {
 public:
-    static void play(audiovoice<AudioPlayMemory> *voice, audiosample *sample) {
+    static void play(uint8_t noteNumber, audiovoice<AudioPlayMemory> *voice, audiosample *sample) {
         voice->_audioplayarray->play((const unsigned int*)sample->_data);
     }
 };
