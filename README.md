@@ -10,7 +10,7 @@ play multi-polyphonic audio samples with teensy audio library
 
 
 ## dependencies
-* [teensy-variable-playback](https://github.com/newdigate/teensy-variable-playback) >= v1.0.6
+* [teensy-variable-playback](https://github.com/newdigate/teensy-variable-playback) >= v1.0.10
 
 
 ## updates
