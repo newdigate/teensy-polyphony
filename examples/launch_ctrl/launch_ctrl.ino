@@ -2,8 +2,10 @@
 #include <MIDI.h>
 #include <Audio.h>
 #include <TeensyPolyphony.h>
+#include "USBHost_t36.h"
 
-MIDI_CREATE_DEFAULT_INSTANCE();
+USBHost myusb;
+MIDIDevice midi1(myusb);
 
 #define NUM_VOICES 4
 // GUItool: begin automatically generated code
@@ -24,6 +26,8 @@ AudioConnection          patchCord7(playSdWav1, 0, mixerLeft, 0);
 AudioConnection          patchCord8(playSdWav1, 1, mixerRight, 0);
 AudioConnection          patchCord9(mixerLeft, 0, tdm_out, 0);
 AudioConnection          patchCord10(mixerRight, 0, tdm_out, 2);
+AudioControlCS42448      audioShield;
+
 // GUItool: end automatically generated code
 
 unpitchedsdwavsampler    _sampler;
@@ -41,8 +45,11 @@ void setup() {
 
     Serial.begin(9600);
     AudioMemory(20);
-
-    while (!(SD.begin(10))) {
+    
+    audioShield.enable();
+    audioShield.volume(0.5);
+    
+    while (!(SD.begin(BUILTIN_SDCARD))) {
         // stop here if no SD card, but print a message
         Serial.println("Unable to access the SD card...");
         delay(500);
@@ -52,16 +59,12 @@ void setup() {
     Serial.printf("Num wave files: %d\n", _numWaveFiles);
     _filenames = new char*[_numWaveFiles];
     populateFilenames("/");
+    
+    myusb.begin();
 
-    // Connect the handleNoteOn function to the library,
-    // so it is called upon reception of a NoteOn.
-    MIDI.setHandleNoteOn(handleNoteOn);  // Put only the name of the function
-
-    // Do the same for NoteOffs
-    MIDI.setHandleNoteOff(handleNoteOff);
-
-    // Initiate MIDI communications, listen to all channels
-    MIDI.begin(MIDI_CHANNEL_OMNI);
+    midi1.setHandleNoteOff(handleNoteOff);
+    midi1.setHandleNoteOn(handleNoteOn);
+    //midi1.setHandleControlChange(OnControlChange);
 
     _sampler.addVoices(_voices, NUM_VOICES);
     for (int i=0; i < _numWaveFiles; i++) {
@@ -72,8 +75,8 @@ void setup() {
 }
 
 void loop() {
-    MIDI.read();
-    delay(1);
+  myusb.Task();
+  midi1.read();
 }
 
 void handleNoteOn(byte channel, byte pitch, byte velocity)
