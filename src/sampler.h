@@ -23,6 +23,7 @@
 #ifndef TEENSY_AUDIO_SAMPLER_H
 #define TEENSY_AUDIO_SAMPLER_H
 
+#include <Audio.h>
 #include <TeensyVariablePlayback.h>
 #include "polyphonicsampler.h"
 #include <vector>
