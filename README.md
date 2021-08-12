@@ -10,11 +10,11 @@ play multi-polyphonic audio samples with teensy audio library
 
 
 ## dependencies
-* [teensy-variable-playback](https://github.com/newdigate/teensy-variable-playback) >= v1.0.6
+* [teensy-variable-playback](https://github.com/newdigate/teensy-variable-playback) >= v1.0.10
 
 
 ## updates
-* 12/08/2021: launch_ctrl: added example to play samples from usb midi
+* 12/08/2021: v1.0.3: launch_ctrl: added example to play samples from usb midi
 * 11/08/2021:
   * ability to play non pitched samples using AudioPlaySdRaw, AudioPlaySdWav, AudioPlayMemory 
 * 10/08/2021: 
