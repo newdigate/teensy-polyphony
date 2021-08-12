@@ -22,6 +22,7 @@ if (NOT DEFINED BUILD_FOR_LINUX)
     
     add_subdirectory(src)
     add_subdirectory(examples/polyphony_demo)
+    add_subdirectory(examples/launch_ctrl)
 else()
     set(CMAKE_CXX_STANDARD 14)
     find_package(teensy_x86_stubs)
@@ -35,4 +36,6 @@ else()
 
     add_subdirectory(src)
     add_subdirectory(extras/linux/array)
+    add_subdirectory(extras/linux/sample_launcher)
+
 endif()
