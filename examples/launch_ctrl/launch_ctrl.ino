@@ -23,7 +23,7 @@ AudioConnection          patchCord6(playSdWav4, 1, mixerRight, 3);
 AudioConnection          patchCord7(playSdWav1, 0, mixerLeft, 0);
 AudioConnection          patchCord8(playSdWav1, 1, mixerRight, 0);
 AudioConnection          patchCord9(mixerLeft, 0, tdm_out, 0);
-AudioConnection          patchCord10(mixerRight, 0, tdm_out, 1);
+AudioConnection          patchCord10(mixerRight, 0, tdm_out, 2);
 // GUItool: end automatically generated code
 
 unpitchedsdwavsampler    _sampler;
