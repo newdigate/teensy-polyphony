@@ -74,6 +74,7 @@ public:
         }
         if (indexOfVoice != 255) {            
             _noteEventFunction(indexOfVoice, noteNumber, velocity, true, isretrigger);
+            voice_noteOn[indexOfVoice] = millis();
             Serial.printf("Voice %i plays note %i (%i, %i)\n", indexOfVoice, noteNumber, velocity, isretrigger);
         }
     }
@@ -111,7 +112,8 @@ private:
     uint8_t activeNotes[128];
     uint8_t activeVoices[MAX_VOICES];
     uint8_t _numVoices;
-    unsigned long voice_noteOff[MAX_VOICES];
+    unsigned long voice_noteOff[MAX_VOICES] {0};
+    unsigned long voice_noteOn[MAX_VOICES] {0};
 
     uint8_t getFirstFreeVoice() {
         unsigned long leastRecentNoteOffEvent = UINT32_MAX;
@@ -120,6 +122,16 @@ private:
             if (activeVoices[i] == 255) {
                 if (voice_noteOff[i] < leastRecentNoteOffEvent) {
                     leastRecentNoteOffEvent = voice_noteOff[i];
+                    indexOfVoiceWithLeastRecentNoteOff = i;
+                }
+            }
+        }
+        if (indexOfVoiceWithLeastRecentNoteOff == 0xff) {
+            // all voices are in use... return the voice with least recent note off
+            unsigned long leastRecentNoteOnEvent = UINT32_MAX;
+            for (int i=0; i < _numVoices; i++) {
+                if (voice_noteOn[i] < leastRecentNoteOffEvent) {
+                    leastRecentNoteOffEvent = voice_noteOn[i];
                     indexOfVoiceWithLeastRecentNoteOff = i;
                 }
             }
