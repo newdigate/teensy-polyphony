@@ -14,6 +14,7 @@ play multi-polyphonic audio samples with teensy audio library
 
 
 ## updates
+* 12/08/2021: v1.0.3
 * 11/08/2021:
   * ability to play non pitched samples using AudioPlaySdRaw, AudioPlaySdWav, AudioPlayMemory 
 * 10/08/2021: 
