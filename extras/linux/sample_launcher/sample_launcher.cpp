@@ -36,7 +36,7 @@ AudioConnection          patchCord10(mixerRight, 0, sio_out1, 1);
 // GUItool: end automatically generated code
 
 unpitchedsdwavsampler    _sampler;
-sdsampleplayermidicontroller _controller;
+sdsampleplayermidicontroller _controller(_sampler);
 
 AudioPlaySdWav           *_voices[NUM_VOICES] = {&playSdWav1, &playSdWav2, &playSdWav3, &playSdWav4};
 
@@ -70,9 +70,6 @@ void setup() {
     MIDI.begin(MIDI_CHANNEL_OMNI);
 
     _sampler.addVoices(_voices, NUM_VOICES);
-    for (int i=0; i < _numWaveFiles; i++) {
-        _sampler.addSample(53+i, _filenames[i]);
-    }
     
     _controller.begin();
     _controller.initialisation_prompt();

@@ -165,26 +165,31 @@ public:
     }
     
     bool iscontrolkey(byte noteNum, byte channel) {
-        return 
-            (getfunctionkey(noteNum, channel) == triggerctrlfunction_none);
+        return getfunctionkey(false, noteNum, channel) == triggerctrlfunction_none;
     }
 
-    triggerctrlfunction getfunctionkey(byte noteNum, byte channel) {
-        if (note_is_ctrl_function_key(noteNum, channel,  triggerctrlfunction_changedirection))
-            return triggerctrlfunction_changedirection;
+    bool iscontrolcc(byte ccNum, byte channel) {
+        return getfunctionkey(true, ccNum, channel) == triggerctrlfunction_selector_cc;
+    }
 
-        if (note_is_ctrl_function_key(noteNum, channel, triggerctrlfunction_changelooptype ))
-            return triggerctrlfunction_changelooptype;
+    triggerctrlfunction getfunctionkey(bool isCC, byte noteNum, byte channel) {
+        if (!isCC) {
+            if (note_is_ctrl_function_key(noteNum, channel,  triggerctrlfunction_changedirection))
+                return triggerctrlfunction_changedirection;
 
-        if (note_is_ctrl_function_key(noteNum, channel, triggerctrlfunction_changesample ))
-            return triggerctrlfunction_changesample;
+            if (note_is_ctrl_function_key(noteNum, channel, triggerctrlfunction_changelooptype ))
+                return triggerctrlfunction_changelooptype;
 
-        if (note_is_ctrl_function_key(noteNum, channel, triggerctrlfunction_changetriggertype ))
-            return triggerctrlfunction_changetriggertype;
+            if (note_is_ctrl_function_key(noteNum, channel, triggerctrlfunction_changesample ))
+                return triggerctrlfunction_changesample;
 
-        if (note_is_ctrl_function_key(noteNum, channel, triggerctrlfunction_selector_cc ))
-            return triggerctrlfunction_selector_cc;
-
+            if (note_is_ctrl_function_key(noteNum, channel, triggerctrlfunction_changetriggertype ))
+                return triggerctrlfunction_changetriggertype;
+        } else {
+            // midi cc
+            if (ccnum_is_ctrl_special_controller(noteNum, channel, triggerctrlfunction_selector_cc ))
+                return triggerctrlfunction_selector_cc;
+        }
         return triggerctrlfunction_none;
     }
 
@@ -199,25 +204,32 @@ private:
                 return (note == midinotenum_changeLoopType && channel == midichannelnum_changeLoopType);
             case triggerctrlfunction::triggerctrlfunction_changesample:
                 return (note == midinotenum_changeSample && channel == midichannelnum_changeSample);
-            case triggerctrlfunction::triggerctrlfunction_selector_cc:
-                return (note == midiccnum_valueSelector && channel == midichannelnum_valueSelector);                
             default:{
                 Serial.printf("Not sure about ctrl function #%d\n", (int)funct);
                 return false;
             }
         }
     }
+
+    bool ccnum_is_ctrl_special_controller(byte ccnum, byte channel, triggerctrlfunction funct) {
+        switch (funct) {
+            case triggerctrlfunction::triggerctrlfunction_selector_cc:
+                return (ccnum == midiccnum_valueSelector && channel == midichannelnum_valueSelector);                
+            default:{
+                Serial.printf("Not sure about cc ctrl function #%d\n", (int)funct);
+                return false;
+            }
+        }
+    }
+
 };
 
 class sdsampleplayermidicontroller {
 public:
-    playcontrollerconfig _config;
-    playcontrollerstate _state = playcontrollerstate::playcontrollerstate_initialising;
-    sdsampleplayernote *_selected_target = nullptr;
-    triggerctrlfunction _selected_ctrl_function = triggerctrlfunction::triggerctrlfunction_changetriggertype;
+    sdsampleplayermidicontroller(unpitchedsdwavsampler &sdwavsampler) : _sdwavsampler(sdwavsampler) {
 
-    std::vector<sdsampleplayernote*> _samples;
-    
+    }
+
     // needed the first time we use the firmware, to prompt user to select first function key configuration 
     void initialisation_prompt() {
         if (_state == playcontrollerstate::playcontrollerstate_initialising) {
@@ -225,39 +237,45 @@ public:
         }
     }
 
-    std::vector<char *> _filenames;
-
     void begin(const char* directoryname = nullptr) {
-        populateFilenames(directoryname);
-               
-        
+        populateFilenames(directoryname);                    
     }
 
-
     void midiChannleVoiceMessage(byte status, byte data1, byte data2, byte channel) {
+        bool isNoteOn = (status & 0xf0) == 0x90;
+        bool isCC = (status & 0xf0) == 0xc0;
         switch (_state) {
 
             case playcontrollerstate_initialising : {
                 // we are learning the ctrl function keys 
-                if ((status & 0xF0) == 0x90 || (status & 0xF0) == 0xc0 ) // midi key-down or cc status nibble
+                if (isNoteOn || isCC ) // midi key-down or cc status nibble
                     _config.configure(data1, channel);
                     if (_config.complete()) {
                         _state = playcontrollerstate::playcontrollerstate_performing;
+                        Serial.printf("[controller configuration complete - switching to performing mode]\n");
                     }
                 break;
             }
             
             case playcontrollerstate_performing: {
-                triggerctrlfunction potentialFnKey = _config.getfunctionkey(data1, channel);
+
+                triggerctrlfunction potentialFnKey = 
+                    (isCC || isNoteOn)? _config.getfunctionkey(isCC, data1, channel) : triggerctrlfunction_none;
+
                 switch (potentialFnKey) {
                     case triggerctrlfunction_none: {
                         // not a function key - regular performance note...
                         // try find a sample mapping for this fellow
-
+                        if (isNoteOn) {
+                            sdsampleplayernote *sample = getSamplerNoteForNoteNum(data1, channel);
+                            if (sample) {
+                                _sdwavsampler.noteEvent(data1, 127, true, false);
+                            }
+                        }
                         break;
                     }
                     case triggerctrlfunction_changesample: {
-                        if ((status & 0xF0) == 0x90) {
+                        if (isNoteOn) {
                             _selected_ctrl_function = triggerctrlfunction_changesample;
                             _state = playcontrollerstate::playcontrollerstate_selecting_target;
                             Serial.println("Select a trigger note to change the sample...");
@@ -286,7 +304,7 @@ public:
                 break;
             }
             case playcontrollerstate_selecting_target: {
-                if ((status & 0xf0) == 0x90) {
+                if (isNoteOn) {
                     // midi key-down status
                     _selected_target = getSamplerNoteForNoteNum(data1, channel);
                     if (_selected_target == nullptr) {
@@ -300,7 +318,7 @@ public:
                 break;
             }
             case playcontrollerstate_editing_target: {
-                triggerctrlfunction fntype = _config.getfunctionkey(data1, channel);
+                triggerctrlfunction fntype = _config.getfunctionkey(isCC, data1, channel);
                 if (fntype == _selected_ctrl_function) {
                     // the note pressed was the select ctrl function already selecected, go back to performance mode
                     _state = playcontrollerstate_performing;
@@ -319,43 +337,46 @@ public:
                         }
 
                         case triggerctrlfunction_changetriggertype: {
-                            triggertype triggerType = (triggertype)(data2 * 5 / 127); 
+                            triggertype triggerType = (triggertype)round(data2 * 4.0 / 128.0); 
                             if (triggerType != _selected_target->_triggertype){
                                 _selected_target->_triggertype = triggerType;
-                                Serial.printf("sample %d, %d changed trigger type to %s\n", data1, channel, getTriggerTypeName(triggerType));
+                                Serial.printf("sample %d, %d changed trigger type to %d: %s\n", _selected_target->_samplerNoteNumber, _selected_target->_samplerNoteChannel, (int)triggerType, getTriggerTypeName(triggerType));
                             }
                             break;
                         }
 
                         case triggerctrlfunction_changesample: {
                             size_t num_samples = _filenames.size();
-                            size_t sampleIndex = (data2 * num_samples / 128);
+                            size_t sampleIndex = round(data2 * num_samples / 128.0);
                             if (_selected_target->_sampleIndex != sampleIndex) {
                                 if (_selected_target->_filename) 
                                     delete [] _selected_target->_filename;
                                 _selected_target->_sampleIndex = sampleIndex;
+                                if (sampleIndex >= num_samples )
+                                    sampleIndex = num_samples-1;
                                 size_t filename_length = strlen(_filenames[sampleIndex])+1;
                                 _selected_target->_filename = new char[filename_length] {0};
                                 memcpy(_selected_target->_filename, _filenames[sampleIndex], strlen(_filenames[sampleIndex]) );
-                                Serial.printf("sample %d, %d changed sample  to %s\n", data1, channel, _selected_target->_filename);
+                                _sdwavsampler.addSample(_selected_target->_samplerNoteNumber, _selected_target->_filename);
+                                Serial.printf("sample %d, %d changed sample to %s\n", _selected_target->_samplerNoteNumber, _selected_target->_samplerNoteChannel, _selected_target->_filename);
                             }
                             break;
                         }
 
                         case triggerctrlfunction_changedirection:{
-                            playdirection playDirection = (playdirection)(data2 * 2 / 127); 
+                            playdirection playDirection = (playdirection) round( data2 / 127.0); 
                             if (playDirection != _selected_target->_playdirection){
                                 _selected_target->_playdirection = playDirection;
-                                Serial.printf("sample %d, %d changed play dir to %s\n", data1, channel, getPlayDirectionName(playDirection));
+                                Serial.printf("sample %d, %d changed play dir to %s\n", _selected_target->_samplerNoteNumber, _selected_target->_samplerNoteChannel, getPlayDirectionName(playDirection));
                             }
                             break;
                         }
 
                         case triggerctrlfunction_changelooptype: {
-                            playlooptype playLoopType = (playlooptype)(data2 * 3 / 127); 
+                            playlooptype playLoopType = (playlooptype)(round(data2 * 2.0 / 127.0)); 
                             if (playLoopType != _selected_target->_playlooptype){
                                 _selected_target->_playlooptype = playLoopType;
-                                Serial.printf("sample %d, %d changed loop type to %s\n", data1, channel, getPlayLoopTypeName(playLoopType));
+                                Serial.printf("sample %d, %d changed loop type to %s\n", _selected_target->_samplerNoteNumber, _selected_target->_samplerNoteChannel, getPlayLoopTypeName(playLoopType));
                             }
                             break;
                         }
@@ -371,6 +392,15 @@ public:
     }
 
 private:
+    unpitchedsdwavsampler &_sdwavsampler;
+    playcontrollerconfig _config;
+    playcontrollerstate _state = playcontrollerstate::playcontrollerstate_initialising;
+    sdsampleplayernote *_selected_target = nullptr;
+    triggerctrlfunction _selected_ctrl_function = triggerctrlfunction::triggerctrlfunction_changetriggertype;
+
+    std::vector<sdsampleplayernote*> _samples;
+    std::vector<char *> _filenames;
+
     void unloadFilenames() {
         for (auto && filename : _filenames) {
             delete [] filename;
