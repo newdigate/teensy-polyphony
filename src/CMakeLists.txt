@@ -5,13 +5,15 @@ project(teensypolyphony C CXX)
 set(SOURCE_FILES
 		sampler.cpp
 		stringsampler.cpp
-		polyphonicsampler.cpp)
+		polyphonicsampler.cpp
+		sampleplaymidicontroller.cpp)
 
 set(HEADER_FILES
 		sampler.h
 		stringsampler.h
 		polyphonicsampler.h
-		TeensyPolyphony.h)
+		TeensyPolyphony.h
+		sampleplaymidicontroller.h)
 
 if (NOT DEFINED TEENSY_VERSION)
 	include(CMakeLists.linux.cmake)
