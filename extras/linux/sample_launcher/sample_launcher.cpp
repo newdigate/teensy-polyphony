@@ -44,9 +44,6 @@ void handleNoteOn(byte channel, byte pitch, byte velocity);
 void handleNoteOff(byte channel, byte pitch, byte velocity);
 void handleControlChange(byte channel, byte data1, byte data2);
 
-
-int _numWaveFiles = 0;
-char **_filenames;
 void setup() {
     Serial.begin(9600);
     AudioMemory(20);
@@ -73,8 +70,6 @@ void setup() {
     
     _controller.begin();
     _controller.initialisation_prompt();
-
-    Serial.println("setup done");
 }
 
 void loop() {

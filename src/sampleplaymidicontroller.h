@@ -52,6 +52,7 @@ public:
     byte _samplerNoteNumber = 0;    
     byte _samplerNoteChannel = 0;    
     int _sampleIndex = -1;
+    byte _indexOfNoteToPlay = 0;
     triggertype _triggertype = triggertype::triggertype_play_until_end;
     playlooptype _playlooptype = playlooptype::playlooptype_once;
     playdirection _playdirection = playdirection::playdirection_begin_forward;
@@ -269,7 +270,8 @@ public:
                         if (isNoteOn) {
                             sdsampleplayernote *sample = getSamplerNoteForNoteNum(data1, channel);
                             if (sample) {
-                                _sdwavsampler.noteEvent(data1, 127, true, false);
+                                _sdwavsampler.noteEvent(sample->_indexOfNoteToPlay, 127, false, false); // turn it off first
+                                _sdwavsampler.noteEvent(sample->_indexOfNoteToPlay, 127, true, false);
                             }
                         }
                         break;
@@ -357,8 +359,11 @@ public:
                                 size_t filename_length = strlen(_filenames[sampleIndex])+1;
                                 _selected_target->_filename = new char[filename_length] {0};
                                 memcpy(_selected_target->_filename, _filenames[sampleIndex], strlen(_filenames[sampleIndex]) );
-                                _sdwavsampler.addSample(_selected_target->_samplerNoteNumber, _selected_target->_filename);
-                                Serial.printf("sample %d, %d changed sample to %s\n", _selected_target->_samplerNoteNumber, _selected_target->_samplerNoteChannel, _selected_target->_filename);
+                                
+                                _selected_target->_indexOfNoteToPlay = sampleIndex;
+
+                                
+                                Serial.printf("sample %d, %d changed sample to %s (sampleIndex=%d)\n", _selected_target->_samplerNoteNumber, _selected_target->_samplerNoteChannel, _selected_target->_filename, sampleIndex);
                             }
                             break;
                         }
@@ -402,6 +407,7 @@ private:
     std::vector<char *> _filenames;
 
     void unloadFilenames() {
+        _sdwavsampler.removeAllSamples();
         for (auto && filename : _filenames) {
             delete [] filename;
         }
@@ -420,6 +426,7 @@ private:
     void populateFilenames(const char *directory) {
         unloadFilenames();
         File dir = directory? SD.open(directory) : SD.open(".");
+        unsigned int index = 0;
         while (true) { 
 
             File files =  dir.openNextFile();
@@ -438,6 +445,8 @@ private:
                 char *filename = new char[curfile.length()+1] {0};
                 memcpy(filename, curfile.c_str(), curfile.length());
                 _filenames.push_back(filename);
+                _sdwavsampler.addSample(index, filename);
+                index++;
             } 
             files.close();
         }

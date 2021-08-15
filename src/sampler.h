@@ -171,6 +171,16 @@ public:
         audiosample *newSample = new audiosample(noteNumber, filename);
         _audiosamples.push_back(newSample);
     }
+
+    void removeAllSamples() {
+        for (auto && sample : _audiosamples) {
+            if (sample->_filename)
+                delete [] sample->_filename;
+            delete sample;
+        }
+        _audiosamples.clear();
+    }
+
     void addVoice(TAudioPlay &audioplayarrayresmp, AudioMixer4 &mixer, uint8_t mixerChannel, AudioEffectEnvelope &envelope, AudioMixer4 &mixer2, uint8_t mixerChannel2, AudioEffectEnvelope &envelope2) {
         audiovoice<TAudioPlay> *voice = new audiovoice<TAudioPlay>(&audioplayarrayresmp, &envelope, &envelope2, &mixer, &mixer2, mixerChannel, mixerChannel2);
         addVoice(voice) ;
