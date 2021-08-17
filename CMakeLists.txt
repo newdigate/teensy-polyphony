@@ -17,12 +17,14 @@ if (NOT DEFINED BUILD_FOR_LINUX)
     import_arduino_library(arm_math ${DEPSPATH}/arm_math/src)
     import_arduino_library(Audio ${DEPSPATH}/Audio utility)
     import_arduino_library(MIDI ${DEPSPATH}/MIDI/src)
-        
+    import_arduino_library(USBHost_t36 ${DEPSPATH}/USBHost_t36)
+
     import_arduino_library(TeensyVariablePlayback ${DEPSPATH}/teensy-variable-playback src)
     
     add_subdirectory(src)
     add_subdirectory(examples/polyphony_demo)
     add_subdirectory(examples/launch_ctrl)
+    add_subdirectory(examples/loop_ctrl)
 else()
     set(CMAKE_CXX_STANDARD 14)
     find_package(teensy_x86_stubs)
@@ -36,6 +38,6 @@ else()
 
     add_subdirectory(src)
     add_subdirectory(extras/linux/array)
-    #add_subdirectory(extras/linux/sample_launcher)
+    add_subdirectory(extras/linux/sample_launcher)
 
 endif()
