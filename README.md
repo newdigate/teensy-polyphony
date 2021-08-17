@@ -14,6 +14,7 @@ play multi-polyphonic audio samples with teensy audio library
 
 
 ## updates
+* 17/08/2021: v1.0.6: add ```loop sampler``` and ``` sampleplaymidicontroller``` classes with example
 * 12/08/2021: v1.0.5: **changed library name** to ```TeensyAudioSampler```
 * 12/08/2021: v1.0.4: launch_ctrl: added example to play samples from usb midi
 * 11/08/2021:
