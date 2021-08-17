@@ -49,7 +49,7 @@ jobs:
           path: teensy-variable-playback
 
       - name: download dependencies
-        run: sudo apt-get update && sudo apt-get install -yq libboost-test-dev libsoundio-dev
+        run: sudo apt-get update && sudo apt-get install -yq libboost-test-dev libsoundio-dev librtmidi-dev
 
       - name: Make and Install teensy-x86-stubs
         run: cd teensy-x86-stubs && mkdir cmake-build-$BUILD_TYPE && cd cmake-build-$BUILD_TYPE && cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE .. && sudo make install
