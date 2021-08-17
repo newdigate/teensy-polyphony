@@ -38,6 +38,6 @@ else()
 
     add_subdirectory(src)
     add_subdirectory(extras/linux/array)
-    add_subdirectory(extras/linux/sample_launcher)
+    #add_subdirectory(extras/linux/sample_launcher)
 
 endif()
