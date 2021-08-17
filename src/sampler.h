@@ -29,7 +29,6 @@
 #include <vector>
 #include "effect_envelope.h"
 #include "mixer.h"
-
 //template <unsigned MAX_NUM_POLYPHONY>
 class audiosample {
 public:

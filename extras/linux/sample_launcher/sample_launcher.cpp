@@ -5,11 +5,10 @@
 #include <MIDI.h>
 #include <SD.h>
 #include <TeensyVariablePlayback.h>
-#include "sampler.h"
+#include <TeensyPolyphony.h>
 #include "RtMidiMIDI.h"
 #include "RtMidiTransport.h"
 #include "output_soundio.h"
-#include "sampleplaymidicontroller.h"
 
 MIDI_CREATE_RTMIDI_INSTANCE(RtMidiMIDI, rtMIDI,  MIDI);
 
@@ -36,7 +35,7 @@ AudioConnection          patchCord9(mixerLeft, 0, sio_out1, 0);
 AudioConnection          patchCord10(mixerRight, 0, sio_out1, 1);
 // GUItool: end automatically generated code
 
-sdwavsampler        _sampler;
+loopsampler        _sampler;
 sdsampleplayermidicontroller _controller(_sampler);
 
 AudioPlaySdResmp           *_voices[NUM_VOICES] = {&playSdAudio1, &playSdAudio2, &playSdAudio3, &playSdAudio4};

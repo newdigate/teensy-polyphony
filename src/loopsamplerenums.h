@@ -19,13 +19,25 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#ifndef TEENSYPOLYPHONY_TEENSYAUDIOSAMPLER_H
-#define TEENSYPOLYPHONY_TEENSYAUDIOSAMPLER_H
 
-#include "polyphonicsampler.h"
-#include "sampler.h"
-#include "stringsampler.h"
-#include "loopsampler.h"
-#include "sampleplaymidicontroller.h"
+#ifndef TEENSY_AUDIO_SAMPLER_LOOPSAMPLER_ENUMS_H
+#define TEENSY_AUDIO_SAMPLER_LOOPSAMPLER_ENUMS_H
 
-#endif TEENSYPOLYPHONY_TEENSYAUDIOSAMPLER_H
+enum triggertype {
+    triggertype_play_until_end = 0,
+    triggertype_play_until_subsequent_notedown = 1,
+    triggertype_play_while_notedown = 2
+};
+
+enum playlooptype {
+    playlooptype_once = 0,
+    playlooptype_looping = 1,
+    playlooptype_pingpong = 2
+};
+
+enum playdirection {
+    playdirection_begin_forward = 0,
+    playdirection_begin_backward = 1
+};
+
+#endif // TEENSY_AUDIO_SAMPLER_LOOPSAMPLER_ENUMS_H
