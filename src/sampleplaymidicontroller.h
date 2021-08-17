@@ -56,6 +56,7 @@ public:
     triggertype _triggertype = triggertype::triggertype_play_until_end;
     playlooptype _playlooptype = playlooptype::playlooptype_once;
     playdirection _playdirection = playdirection::playdirection_begin_forward;
+    bool isPlaying = false;
 };
 
 enum playcontrollerstate {
@@ -227,7 +228,7 @@ private:
 
 class sdsampleplayermidicontroller {
 public:
-    sdsampleplayermidicontroller(unpitchedsdwavsampler &sdwavsampler) : _sdwavsampler(sdwavsampler) {
+    sdsampleplayermidicontroller(sdwavsampler &sdwavsampler) : _sdwavsampler(sdwavsampler) {
 
     }
 
@@ -270,8 +271,7 @@ public:
                         if (isNoteOn) {
                             sdsampleplayernote *sample = getSamplerNoteForNoteNum(data1, channel);
                             if (sample) {
-                                _sdwavsampler.noteEvent(sample->_indexOfNoteToPlay, 127, false, false); // turn it off first
-                                _sdwavsampler.noteEvent(sample->_indexOfNoteToPlay, 127, true, false);
+                                sampletrigger_received(sample);
                             }
                         }
                         break;
@@ -397,7 +397,7 @@ public:
     }
 
 private:
-    unpitchedsdwavsampler &_sdwavsampler;
+    sdwavsampler &_sdwavsampler;
     playcontrollerconfig _config;
     playcontrollerstate _state = playcontrollerstate::playcontrollerstate_initialising;
     sdsampleplayernote *_selected_target = nullptr;
@@ -413,7 +413,6 @@ private:
         }
         _filenames.clear();
     }
-    
     void unloadSamples() {
         for (auto && sample : _samples) {
             if (sample->_filename)
@@ -422,7 +421,6 @@ private:
         }
         _samples.clear();
     }
-    
     void populateFilenames(const char *directory) {
         unloadFilenames();
         File dir = directory? SD.open(directory) : SD.open(".");
@@ -453,7 +451,6 @@ private:
         // close 
         dir.close();
     }
-
     sdsampleplayernote* getSamplerNoteForNoteNum(byte noteNum, byte channel) {
         for (auto && note : _samples) {
             if (note->_samplerNoteNumber == noteNum && note->_samplerNoteChannel == channel)
@@ -472,9 +469,7 @@ private:
             default:
                 return "not sure?";
         }
-    }
-
-    
+    }   
     static const char* getPlayDirectionName(playdirection pd){
         switch (pd) {
             case playdirection_begin_forward: 
@@ -485,7 +480,6 @@ private:
                 return "not sure?";
         }
     }
-
     static const char* getPlayLoopTypeName(playlooptype pd){
         switch (pd) {
             case playlooptype_once: return "play once";
@@ -496,6 +490,30 @@ private:
         }
     }
 
+    void sampletrigger_received(sdsampleplayernote *sample) {
+        switch (sample->_triggertype) {
+            case triggertype_play_until_end :
+            case triggertype_play_while_notedown : {
+                _sdwavsampler.noteEvent(sample->_indexOfNoteToPlay, 127, false, false); // turn it off first
+                _sdwavsampler.noteEvent(sample->_indexOfNoteToPlay, 127, true, false);
+                sample->isPlaying = true;
+                break;
+            }
+
+            case triggertype_play_until_subsequent_notedown: {
+                if (sample->isPlaying) {
+                    _sdwavsampler.noteEvent(sample->_indexOfNoteToPlay, 127, false, false); // turn it off 
+                    sample->isPlaying = true;
+                } else {
+                    _sdwavsampler.noteEvent(sample->_indexOfNoteToPlay, 127, true, false); // turn it on 
+                    sample->isPlaying = true;
+                }
+                break;
+            }
+
+            default: break;
+        }
+    }
 };
 
 #endif // TEENSY_AUDIO_SAMPLER_SAMPLEPLAYMIDICONTROLLER_H

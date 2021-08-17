@@ -4,6 +4,7 @@
 #include <Audio.h>
 #include <MIDI.h>
 #include <SD.h>
+#include <TeensyVariablePlayback.h>
 #include "sampler.h"
 #include "RtMidiMIDI.h"
 #include "RtMidiTransport.h"
@@ -16,29 +17,29 @@ MIDI_CREATE_RTMIDI_INSTANCE(RtMidiMIDI, rtMIDI,  MIDI);
 #define KEY_NOTENUMBER_C1 36
 
 // GUItool: begin automatically generated code
-AudioPlaySdWav           playSdWav3;     //xy=334.0000457763672,459.0000305175781
-AudioPlaySdWav           playSdWav2;     //xy=338.0000305175781,382.0000305175781
-AudioPlaySdWav           playSdWav4;     //xy=339.0000457763672,536
-AudioPlaySdWav           playSdWav1;     //xy=340.0000419616699,302.0000238418579
+AudioPlaySdResmp         playSdAudio3;     //xy=334.0000457763672,459.0000305175781
+AudioPlaySdResmp         playSdAudio2;     //xy=338.0000305175781,382.0000305175781
+AudioPlaySdResmp         playSdAudio4;     //xy=339.0000457763672,536
+AudioPlaySdResmp         playSdAudio1;     //xy=340.0000419616699,302.0000238418579
 AudioMixer4              mixerLeft;         //xy=650.0000419616699,404.0000238418579
 AudioMixer4              mixerRight;         //xy=650.0000610351562,511.0000305175781
 AudioOutputSoundIO       sio_out1;       //xy=958.0000610351562,466.0000305175781
-AudioConnection          patchCord1(playSdWav3, 0, mixerLeft, 2);
-AudioConnection          patchCord2(playSdWav3, 1, mixerRight, 2);
-AudioConnection          patchCord3(playSdWav2, 0, mixerLeft, 1);
-AudioConnection          patchCord4(playSdWav2, 1, mixerRight, 1);
-AudioConnection          patchCord5(playSdWav4, 0, mixerLeft, 3);
-AudioConnection          patchCord6(playSdWav4, 1, mixerRight, 3);
-AudioConnection          patchCord7(playSdWav1, 0, mixerLeft, 0);
-AudioConnection          patchCord8(playSdWav1, 1, mixerRight, 0);
+AudioConnection          patchCord1(playSdAudio3, 0, mixerLeft, 2);
+AudioConnection          patchCord2(playSdAudio3, 1, mixerRight, 2);
+AudioConnection          patchCord3(playSdAudio2, 0, mixerLeft, 1);
+AudioConnection          patchCord4(playSdAudio2, 1, mixerRight, 1);
+AudioConnection          patchCord5(playSdAudio4, 0, mixerLeft, 3);
+AudioConnection          patchCord6(playSdAudio4, 1, mixerRight, 3);
+AudioConnection          patchCord7(playSdAudio1, 0, mixerLeft, 0);
+AudioConnection          patchCord8(playSdAudio1, 1, mixerRight, 0);
 AudioConnection          patchCord9(mixerLeft, 0, sio_out1, 0);
 AudioConnection          patchCord10(mixerRight, 0, sio_out1, 1);
 // GUItool: end automatically generated code
 
-unpitchedsdwavsampler    _sampler;
+sdwavsampler        _sampler;
 sdsampleplayermidicontroller _controller(_sampler);
 
-AudioPlaySdWav           *_voices[NUM_VOICES] = {&playSdWav1, &playSdWav2, &playSdWav3, &playSdWav4};
+AudioPlaySdResmp           *_voices[NUM_VOICES] = {&playSdAudio1, &playSdAudio2, &playSdAudio3, &playSdAudio4};
 
 void handleNoteOn(byte channel, byte pitch, byte velocity);
 void handleNoteOff(byte channel, byte pitch, byte velocity);
