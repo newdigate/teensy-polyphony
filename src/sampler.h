@@ -29,7 +29,6 @@
 #include <vector>
 #include "effect_envelope.h"
 #include "mixer.h"
-
 //template <unsigned MAX_NUM_POLYPHONY>
 class audiosample {
 public:
@@ -146,13 +145,12 @@ public:
     }
 };
 
-template<class TAudioPlay, class TSamplePlay>
+// TAudioPlay should be an object extending AudioStream which will play the audio
+// TSampleType stores information about a sample 
+template<class TAudioPlay, class TSampleType>
 class basesampler {
 public:
     basesampler() : _polysampler() {
-        _polysampler.setNoteEventCallback( [&] (uint8_t voice, uint8_t noteNumber, uint8_t velocity, bool isNoteOn, bool retrigger) {
-            noteEventCallback(voice, noteNumber, velocity, isNoteOn, retrigger);
-        });
     }
 
     void noteEvent(uint8_t noteNumber, uint8_t velocity, bool isNoteOn, bool retrigger) {
@@ -162,20 +160,14 @@ public:
             _polysampler.noteOff(noteNumber);
     }
 
-    void addSample(uint8_t noteNumber, int16_t *data, uint32_t sampleLength, uint16_t numChannels) {
-        audiosample *newSample = new audiosample(noteNumber, data, sampleLength, numChannels);
-        _audiosamples.push_back(newSample);
-    }
-
-    void addSample(uint8_t noteNumber, const char* filename) {
-        audiosample *newSample = new audiosample(noteNumber, filename);
-        _audiosamples.push_back(newSample);
+    void addSample(TSampleType *sample) {
+        _audiosamples.push_back(sample);
     }
 
     void removeAllSamples() {
         for (auto && sample : _audiosamples) {
-            if (sample->_filename)
-                delete [] sample->_filename;
+            //if (sample->_filename)
+            //    delete [] sample->_filename;
             delete sample;
         }
         _audiosamples.clear();
@@ -221,65 +213,20 @@ public:
         }
     }
 
-private:
+protected:
     uint8_t _numVoices = 0;
     std::vector<audiovoice<TAudioPlay>*> _voices;
     polyphonicsampler _polysampler;
     
-    std::vector<audiosample*> _audiosamples;
+    std::vector<TSampleType*> _audiosamples;
 
-    void noteEventCallback(uint8_t voice, uint8_t noteNumber, uint8_t velocity, bool isNoteOn, bool retrigger)
-    {
-        if (voice < _numVoices) {
-            if (isNoteOn) {
-                audiosample *nearestSample = findNearestSampleForKey(noteNumber);
-                if (nearestSample != nullptr) {
-                    
-                    if (_voices[voice]->_audiomixer != nullptr) {                        
-                        _voices[voice]->_audiomixer->gain(_voices[voice]->_mixerChannel, velocity / 255.0);
-                    }
-                    if (_voices[voice]->_audiomixer2 != nullptr) {                        
-                        _voices[voice]->_audiomixer2->gain(_voices[voice]->_mixerChannel, velocity / 255.0);
-                    }
-                    if (_voices[voice]->_audioenvelop != nullptr) {
-                        _voices[voice]->_audioenvelop->noteOn();
-                    }
-                    if (_voices[voice]->_audioenvelop2 != nullptr) {
-                        _voices[voice]->_audioenvelop2->noteOn();
-                    }
-                    TSamplePlay::play(noteNumber, _voices[voice], nearestSample);
-                }
-            } else {
-                // Note off event
-                if (_voices[voice]->_audioenvelop != nullptr) {
-                    _voices[voice]->_audioenvelop->noteOff();
-                }
-                
-                if (_voices[voice]->_audioenvelop2 != nullptr) {
-                    _voices[voice]->_audioenvelop2->noteOff();
-                }
+    // _polysampler will call noteEventCallback with a voice number
+    //virtual void noteEventCallback(uint8_t voice, uint8_t noteNumber, uint8_t velocity, bool isNoteOn, bool retrigger);
 
-            }
-        }
-    }
-
-    audiosample* findNearestSampleForKey(uint8_t noteNumber) {
-        uint8_t smallestDiff = 255;
-        audiosample *candidate = nullptr;
-        for (auto &&x : _audiosamples) {
-            uint8_t diff = abs(x->_noteNumber - noteNumber);
-            if (diff < smallestDiff) {
-                smallestDiff = diff;
-                candidate = x;
-            }
-        }
-        return candidate;
-    }
+    //virtual TSampleType* findNearestSampleForKey(uint8_t noteNumber);
     
     void addVoice(audiovoice<TAudioPlay> *voice){
-
         _voices.push_back(voice);
-        _voices.begin();
         _numVoices++;
         _polysampler.setNumVoices(_numVoices);
     }
@@ -312,13 +259,86 @@ public:
     }
 };
 
-class arraysampler : public basesampler<AudioPlayArrayResmp, PitchedArraySamplePlay> {
+template<class TAudioPlay, class TSamplePlay>
+class audiosampler : public basesampler<TAudioPlay, audiosample> {
+public:
+    using __base = basesampler<TAudioPlay, audiosample>;
+
+    audiosampler() : __base() {
+        __base::_polysampler.setNoteEventCallback( [&] (uint8_t voice, uint8_t noteNumber, uint8_t velocity, bool isNoteOn, bool retrigger) {
+            noteEventCallback(voice, noteNumber, velocity, isNoteOn, retrigger);
+        });
+    }
+
+    void addSample(uint8_t noteNumber, int16_t *data, uint32_t sampleLength, uint16_t numChannels) {
+        audiosample *newSample = new audiosample(noteNumber, data, sampleLength, numChannels);
+        __base::addSample(newSample);
+    }
+
+    void addSample(uint8_t noteNumber, const char* filename) {
+        audiosample *newSample = new audiosample(noteNumber, filename);
+        __base::addSample(newSample);
+    }
+
+ protected:
+    void noteEventCallback(uint8_t voice, uint8_t noteNumber, uint8_t velocity, bool isNoteOn, bool retrigger)    
+    {
+        uint8_t numVoices = __base::_numVoices;
+        if (voice < numVoices) {
+            audiovoice<TAudioPlay> *audio_voice = __base::_voices[voice];
+            if (isNoteOn) {
+                audiosample *nearestSample = findNearestSampleForKey(noteNumber);
+                if (nearestSample != nullptr) {
+                    
+                    if (audio_voice->_audiomixer != nullptr) {                        
+                        audio_voice->_audiomixer->gain( audio_voice->_mixerChannel, velocity / 255.0);
+                    }
+                    if (audio_voice->_audiomixer2 != nullptr) {                        
+                        audio_voice->_audiomixer2->gain(audio_voice->_mixerChannel, velocity / 255.0);
+                    }
+                    if (audio_voice->_audioenvelop != nullptr) {
+                       audio_voice->_audioenvelop->noteOn();
+                    }
+                    if (audio_voice->_audioenvelop2 != nullptr) {
+                        audio_voice->_audioenvelop2->noteOn();
+                    }
+                    TSamplePlay::play(noteNumber, audio_voice, nearestSample);
+                }
+            } else {
+                // Note off event
+                if (audio_voice->_audioenvelop != nullptr) {
+                    audio_voice->_audioenvelop->noteOff();
+                }
+                
+                if (audio_voice->_audioenvelop2 != nullptr) {
+                    audio_voice->_audioenvelop2->noteOff();
+                }
+
+            }
+        }
+    }
+
+    audiosample* findNearestSampleForKey(uint8_t noteNumber) {
+        uint8_t smallestDiff = 255;
+        audiosample *candidate = nullptr;
+        for (auto &&x : __base::_audiosamples) {
+            uint8_t diff = abs(x->_noteNumber - noteNumber);
+            if (diff < smallestDiff) {
+                smallestDiff = diff;
+                candidate = x;
+            }
+        }
+        return candidate;
+    }
 };
 
-class sdwavsampler : public basesampler<AudioPlaySdResmp, PitchedSdWavSamplePlay> {
+class arraysampler : public audiosampler<AudioPlayArrayResmp, PitchedArraySamplePlay> {
 };
 
-class sdrawsampler : public basesampler<AudioPlaySdResmp, PitchedSdRawSamplePlay> {
+class sdwavsampler : public audiosampler<AudioPlaySdResmp, PitchedSdWavSamplePlay> {
+};
+
+class sdrawsampler : public audiosampler<AudioPlaySdResmp, PitchedSdRawSamplePlay> {
 };
 
 class UnpitchedSdWavSamplePlay {
@@ -335,11 +355,11 @@ public:
     }
 };
 
-class unpitchedsdwavsampler : public basesampler<AudioPlaySdWav, UnpitchedSdWavSamplePlay> {
+class unpitchedsdwavsampler : public audiosampler<AudioPlaySdWav, UnpitchedSdWavSamplePlay> {
 
 };
 
-class unpitchedsdrawsampler : public basesampler<AudioPlaySdRaw, UnpitchedSdRawSamplePlay> {
+class unpitchedsdrawsampler : public audiosampler<AudioPlaySdRaw, UnpitchedSdRawSamplePlay> {
 
 };
 
@@ -350,7 +370,7 @@ public:
     }
 };
 
-class unpitchedmemorysampler : public basesampler<AudioPlayMemory, UnpitchedMemorySamplePlay> {
+class unpitchedmemorysampler : public audiosampler<AudioPlayMemory, UnpitchedMemorySamplePlay> {
 
 };
 

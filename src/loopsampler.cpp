@@ -19,13 +19,5 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#ifndef TEENSYPOLYPHONY_TEENSYAUDIOSAMPLER_H
-#define TEENSYPOLYPHONY_TEENSYAUDIOSAMPLER_H
 
-#include "polyphonicsampler.h"
-#include "sampler.h"
-#include "stringsampler.h"
 #include "loopsampler.h"
-#include "sampleplaymidicontroller.h"
-
-#endif TEENSYPOLYPHONY_TEENSYAUDIOSAMPLER_H

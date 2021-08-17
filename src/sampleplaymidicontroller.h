@@ -27,24 +27,8 @@
 #include <vector>
 #include <map>
 #include <SD.h>
-#include "sampler.h"
-
-enum triggertype {
-    triggertype_play_until_end = 0,
-    triggertype_play_until_subsequent_notedown = 1,
-    triggertype_play_while_notedown = 2
-};
-
-enum playlooptype {
-    playlooptype_once = 0,
-    playlooptype_looping = 1,
-    playlooptype_pingpong = 2
-};
-
-enum playdirection {
-    playdirection_begin_forward = 0,
-    playdirection_begin_backward = 1
-};
+#include "loopsampler.h"
+#include "loopsamplerenums.h"
 
 class sdsampleplayernote {
 public:
@@ -53,9 +37,7 @@ public:
     byte _samplerNoteChannel = 0;    
     int _sampleIndex = -1;
     byte _indexOfNoteToPlay = 0;
-    triggertype _triggertype = triggertype::triggertype_play_until_end;
-    playlooptype _playlooptype = playlooptype::playlooptype_once;
-    playdirection _playdirection = playdirection::playdirection_begin_forward;
+    bool isPlaying = false;
 };
 
 enum playcontrollerstate {
@@ -227,7 +209,7 @@ private:
 
 class sdsampleplayermidicontroller {
 public:
-    sdsampleplayermidicontroller(unpitchedsdwavsampler &sdwavsampler) : _sdwavsampler(sdwavsampler) {
+    sdsampleplayermidicontroller(loopsampler &loopsampler) : _loopsampler(loopsampler) {
 
     }
 
@@ -267,11 +249,15 @@ public:
                     case triggerctrlfunction_none: {
                         // not a function key - regular performance note...
                         // try find a sample mapping for this fellow
-                        if (isNoteOn) {
-                            sdsampleplayernote *sample = getSamplerNoteForNoteNum(data1, channel);
-                            if (sample) {
-                                _sdwavsampler.noteEvent(sample->_indexOfNoteToPlay, 127, false, false); // turn it off first
-                                _sdwavsampler.noteEvent(sample->_indexOfNoteToPlay, 127, true, false);
+                        sdsampleplayernote *sample = getSamplerNoteForNoteNum(data1, channel);
+                        if (sample) {
+                            if (isNoteOn) {
+                                sampletrigger_received(sample);
+                            } else  
+                            {
+                                bool isNoteOff = (status & 0xf0) == 0x80;
+                                if (isNoteOff)
+                                    sampletriggerstop_received(sample);
                             }
                         }
                         break;
@@ -315,6 +301,7 @@ public:
                         _selected_target->_samplerNoteChannel = channel;                        
                         _samples.push_back(_selected_target);
                     }
+                    Serial.printf("[selected note=%d, channel=%d]\n", data1, channel);
                     _state = playcontrollerstate::playcontrollerstate_editing_target;
                 }
                 break;
@@ -340,9 +327,12 @@ public:
 
                         case triggerctrlfunction_changetriggertype: {
                             triggertype triggerType = (triggertype)round(data2 * 4.0 / 128.0); 
-                            if (triggerType != _selected_target->_triggertype){
-                                _selected_target->_triggertype = triggerType;
-                                Serial.printf("sample %d, %d changed trigger type to %d: %s\n", _selected_target->_samplerNoteNumber, _selected_target->_samplerNoteChannel, (int)triggerType, getTriggerTypeName(triggerType));
+                            sdloopaudiosample *sample = _loopsampler.findSampleForKey(_selected_target->_indexOfNoteToPlay);
+                            if (sample) {
+                                if (triggerType != sample->_triggertype){
+                                    sample->_triggertype = triggerType;
+                                    Serial.printf("sample %d, %d changed trigger type to %d: %s\n", _selected_target->_samplerNoteNumber, _selected_target->_samplerNoteChannel, (int)triggerType, getTriggerTypeName(triggerType));
+                                }
                             }
                             break;
                         }
@@ -369,19 +359,25 @@ public:
                         }
 
                         case triggerctrlfunction_changedirection:{
-                            playdirection playDirection = (playdirection) round( data2 / 127.0); 
-                            if (playDirection != _selected_target->_playdirection){
-                                _selected_target->_playdirection = playDirection;
-                                Serial.printf("sample %d, %d changed play dir to %s\n", _selected_target->_samplerNoteNumber, _selected_target->_samplerNoteChannel, getPlayDirectionName(playDirection));
+                            playdirection playDirection = (playdirection) round( data2 / 128.0); 
+                            sdloopaudiosample *sample = _loopsampler.findSampleForKey(_selected_target->_indexOfNoteToPlay);
+                            if (sample) {
+                                if (playDirection != sample->_playdirection){
+                                    sample->_playdirection = playDirection;
+                                    Serial.printf("sample %d, %d changed play dir to %s\n", _selected_target->_samplerNoteNumber, _selected_target->_samplerNoteChannel, getPlayDirectionName(playDirection));
+                                }
                             }
                             break;
                         }
 
                         case triggerctrlfunction_changelooptype: {
-                            playlooptype playLoopType = (playlooptype)(round(data2 * 2.0 / 127.0)); 
-                            if (playLoopType != _selected_target->_playlooptype){
-                                _selected_target->_playlooptype = playLoopType;
-                                Serial.printf("sample %d, %d changed loop type to %s\n", _selected_target->_samplerNoteNumber, _selected_target->_samplerNoteChannel, getPlayLoopTypeName(playLoopType));
+                            playlooptype playLoopType = (playlooptype)(round(data2 * 2.0 / 128.0)); 
+                            sdloopaudiosample *sample = _loopsampler.findSampleForKey(_selected_target->_indexOfNoteToPlay);
+                            if (sample) {
+                                if (playLoopType != sample->_playlooptype){
+                                    sample->_playlooptype = playLoopType;
+                                    Serial.printf("sample %d, %d changed loop type to %s\n", _selected_target->_samplerNoteNumber, _selected_target->_samplerNoteChannel, getPlayLoopTypeName(playLoopType));
+                                }
                             }
                             break;
                         }
@@ -397,7 +393,7 @@ public:
     }
 
 private:
-    unpitchedsdwavsampler &_sdwavsampler;
+    loopsampler &_loopsampler;
     playcontrollerconfig _config;
     playcontrollerstate _state = playcontrollerstate::playcontrollerstate_initialising;
     sdsampleplayernote *_selected_target = nullptr;
@@ -407,13 +403,12 @@ private:
     std::vector<char *> _filenames;
 
     void unloadFilenames() {
-        _sdwavsampler.removeAllSamples();
+        _loopsampler.removeAllSamples();
         for (auto && filename : _filenames) {
             delete [] filename;
         }
         _filenames.clear();
     }
-    
     void unloadSamples() {
         for (auto && sample : _samples) {
             if (sample->_filename)
@@ -422,7 +417,6 @@ private:
         }
         _samples.clear();
     }
-    
     void populateFilenames(const char *directory) {
         unloadFilenames();
         File dir = directory? SD.open(directory) : SD.open(".");
@@ -445,7 +439,7 @@ private:
                 char *filename = new char[curfile.length()+1] {0};
                 memcpy(filename, curfile.c_str(), curfile.length());
                 _filenames.push_back(filename);
-                _sdwavsampler.addSample(index, filename);
+                _loopsampler.addSample(index, filename);
                 index++;
             } 
             files.close();
@@ -453,7 +447,6 @@ private:
         // close 
         dir.close();
     }
-
     sdsampleplayernote* getSamplerNoteForNoteNum(byte noteNum, byte channel) {
         for (auto && note : _samples) {
             if (note->_samplerNoteNumber == noteNum && note->_samplerNoteChannel == channel)
@@ -472,9 +465,7 @@ private:
             default:
                 return "not sure?";
         }
-    }
-
-    
+    }   
     static const char* getPlayDirectionName(playdirection pd){
         switch (pd) {
             case playdirection_begin_forward: 
@@ -485,7 +476,6 @@ private:
                 return "not sure?";
         }
     }
-
     static const char* getPlayLoopTypeName(playlooptype pd){
         switch (pd) {
             case playlooptype_once: return "play once";
@@ -496,6 +486,57 @@ private:
         }
     }
 
+    void sampletrigger_received(sdsampleplayernote *sample) {        
+        sdloopaudiosample *loop_audiosample = _loopsampler.findSampleForKey(sample->_indexOfNoteToPlay);
+        if (!loop_audiosample) {
+            return;
+        }
+
+        switch (loop_audiosample->_triggertype) {
+            case triggertype_play_until_end :
+            case triggertype_play_while_notedown : {
+                _loopsampler.noteEvent(sample->_indexOfNoteToPlay, 127, false, false); // turn it off first
+                _loopsampler.noteEvent(sample->_indexOfNoteToPlay, 127, true, false);
+                sample->isPlaying = true;
+                break;
+            }
+
+            case triggertype_play_until_subsequent_notedown: {
+                if (sample->isPlaying) {
+                    _loopsampler.noteEvent(sample->_indexOfNoteToPlay, 127, false, false); // turn it off 
+                    sample->isPlaying = false;
+                } else {
+                    _loopsampler.noteEvent(sample->_indexOfNoteToPlay, 127, true, false); // turn it on 
+                    sample->isPlaying = true;
+                }
+                break;
+            }
+
+            default: break;
+        }
+    }
+    
+    void sampletriggerstop_received(sdsampleplayernote *sample) {        
+        sdloopaudiosample *loop_audiosample = _loopsampler.findSampleForKey(sample->_indexOfNoteToPlay);
+        if (!loop_audiosample) {
+            return;
+        }
+
+        switch (loop_audiosample->_triggertype) {
+            case triggertype_play_until_end :
+            case triggertype_play_until_subsequent_notedown :
+            break;
+            
+            case triggertype_play_while_notedown :
+            {
+                _loopsampler.noteEvent(sample->_indexOfNoteToPlay, 127, false, false); // turn it off 
+                sample->isPlaying = false;
+                break;
+            }
+
+            default: break;
+        }
+    }
 };
 
 #endif // TEENSY_AUDIO_SAMPLER_SAMPLEPLAYMIDICONTROLLER_H
