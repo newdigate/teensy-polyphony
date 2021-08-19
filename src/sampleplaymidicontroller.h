@@ -141,12 +141,66 @@ public:
         }
         if (!complete())
             prompt();
+        else
+            saveToFile("device.ctl");
+    }
+
+    void reset() {
+        num_ctrl_fns_configured = 0;
+        midinotenum_changeTriggerType = 0;
+        midichannelnum_changeTriggerType = 0;
+        midinotenum_changeDirection = 0;
+        midichannelnum_changeDirection = 0;
+        midinotenum_changeLoopType = 0; 
+        midichannelnum_changeLoopType = 0;
+        midinotenum_changeSample = 0;    
+        midichannelnum_changeSample = 0;
+        midiccnum_valueSelector = 0;     
+        midichannelnum_valueSelector = 0;
     }
 
     bool complete() {
         return num_ctrl_fns_configured >= 5;
     }
+
+    bool readReadFromFile(const char * filename) {
+        File file = SD.open(filename);
+        if (file) {
+            playcontrollerconfig config;
+            size_t bytesRead = file.read((char*)&config, sizeof(playcontrollerconfig));
+            file.close();
+            Serial.printf("config bytes read: %d\n", bytesRead);
+            if (bytesRead >= sizeof(playcontrollerconfig)) {
+                midinotenum_changeTriggerType      = config.midinotenum_changeTriggerType;
+                midichannelnum_changeTriggerType   = config.midichannelnum_changeTriggerType;
+                midinotenum_changeDirection        = config.midinotenum_changeDirection;
+                midichannelnum_changeDirection     = config.midichannelnum_changeDirection;
+                midinotenum_changeLoopType         = config.midinotenum_changeLoopType;
+                midichannelnum_changeLoopType      = config.midichannelnum_changeLoopType;        
+                midinotenum_changeSample           = config.midinotenum_changeSample;    
+                midichannelnum_changeSample        = config.midichannelnum_changeSample;    
+                midiccnum_valueSelector            = config.midiccnum_valueSelector;    
+                midichannelnum_valueSelector       = config.midichannelnum_valueSelector;
+                return true;
+            }
+            return false;
+        } else {
+            return false;
+        }
+    }
     
+    bool saveToFile(const char * filename) {
+        File file = SD.open(filename, O_WRITE);
+        if (file) {
+            size_t bytesWritten = file.write((const unsigned char*)this, sizeof(playcontrollerconfig));
+            //Serial.printf("config bytes written: %d\n", bytesWritten);
+            file.close();
+            return bytesWritten == sizeof(playcontrollerconfig);
+        } 
+        return false;
+    }
+
+
     bool iscontrolkey(byte noteNum, byte channel) {
         return getfunctionkey(false, noteNum, channel) == triggerctrlfunction_none;
     }
@@ -213,15 +267,24 @@ public:
 
     }
 
-    // needed the first time we use the firmware, to prompt user to select first function key configuration 
-    void initialisation_prompt() {
-        if (_state == playcontrollerstate::playcontrollerstate_initialising) {
-            _config.prompt();
-        }
+    void initialize() {
+        _config.reset();
+        _state = playcontrollerstate::playcontrollerstate_initialising;
+        _config.prompt();
     }
 
     void begin(const char* directoryname = nullptr) {
-        populateFilenames(directoryname);                    
+        populateFilenames(directoryname);
+        
+        if (_config.readReadFromFile("device.ctl")) {
+            Serial.printf("loaded settings from file.\n");
+            _state = playcontrollerstate::playcontrollerstate_performing;
+        } else {
+            _config.prompt();
+        }
+        if (loadSamples("samples.smp")){
+            Serial.println("loaded sample config");
+        }
     }
 
     void midiChannleVoiceMessage(byte status, byte data1, byte data2, byte channel) {
@@ -392,6 +455,28 @@ public:
         }
     }
 
+    bool loadSamples(const char* filename) {
+        File file = SD.open(filename);
+        if (file) {
+            sdsampleplayernote *note;
+            while((note = read_sample(file)) != nullptr) {
+                _samples.push_back(note);
+                Serial.printf("loaded sample %d: %s\n", note->_sampleIndex, note->_filename);
+            }
+            file.close();
+            return true;
+        }
+        Serial.printf("Not able to open %s\n", filename);
+        return false;
+    }
+
+    void writeSamples(const char* filename) {
+        File file = SD.open(filename, O_WRITE);
+        for (auto && note : _samples) {
+            write_sample(file, note);
+        }
+        file.close();
+    }
 private:
     loopsampler &_loopsampler;
     playcontrollerconfig _config;
@@ -419,7 +504,7 @@ private:
     }
     void populateFilenames(const char *directory) {
         unloadFilenames();
-        File dir = directory? SD.open(directory) : SD.open(".");
+        File dir = directory? SD.open(directory) : SD.open("/");
         unsigned int index = 0;
         while (true) { 
 
@@ -433,15 +518,18 @@ private:
             int m = curfile.lastIndexOf(".WAV");
             int a = curfile.lastIndexOf(".wav");
             int underscore = curfile.indexOf("_");
+            int dot = curfile.indexOf(".");
 
             // if returned results is more then 0 add them to the list.
-            if ((m > 0 || a > 0) && (underscore != 0)) {  
+            if ((m > 0 || a > 0) && (underscore != 0) && (dot != 0)) {  
                 char *filename = new char[curfile.length()+1] {0};
                 memcpy(filename, curfile.c_str(), curfile.length());
                 _filenames.push_back(filename);
                 _loopsampler.addSample(index, filename);
+                //Serial.printf("filename: %d: %s\n", index, filename);
                 index++;
-            } 
+            } // else 
+              //  Serial.printf("INGORE: filename: %d: %s\n", index, curfile.c_str());
             files.close();
         }
         // close 
@@ -537,6 +625,124 @@ private:
             default: break;
         }
     }
+
+    sdsampleplayernote* read_sample(File file) {
+
+        uint16_t progress = 0;
+        uint32_t filename_length = varfieldRead(file, progress);
+
+        if (progress == 0)
+            return nullptr;
+
+        sdsampleplayernote *samplernote = new sdsampleplayernote();
+        samplernote->_filename = new char[filename_length + 1] {0};
+        
+        size_t bytesRead = file.read( samplernote->_filename, filename_length);      
+        if (bytesRead != filename_length) {
+            Serial.printf("WARN: could not load sample '%s' (1).\n", samplernote->_filename);
+            delete samplernote->_filename;
+            delete samplernote;
+            return nullptr;
+        }
+            
+        bytesRead = file.read(&(samplernote->_samplerNoteNumber), 1 );
+        if (bytesRead != 1) {
+            Serial.printf("WARN: could not load sample '%s' (2).\n", samplernote->_filename);
+            delete samplernote->_filename;
+            delete samplernote;
+            return nullptr;
+        } 
+        
+        bytesRead = file.read(&(samplernote->_samplerNoteChannel), 1 );
+        if (bytesRead != 1) {
+            Serial.printf("WARN: could not load sample '%s' (3).\n", samplernote->_filename);
+            delete samplernote->_filename;
+            delete samplernote;
+            return nullptr;
+        } 
+        
+        bytesRead = file.read(&(samplernote->_indexOfNoteToPlay), 1 );
+        if (bytesRead != 1) {
+            Serial.printf("WARN: could not load sample '%s' (4).\n", samplernote->_filename);
+            delete samplernote->_filename;
+            delete samplernote;
+            return nullptr;
+        } 
+
+        int indexOfFile = getIndexOfSDWaveFile(samplernote->_filename);
+        if (indexOfFile == -1) {
+            Serial.printf("WARN: could not load sample '%s' (5).\n", samplernote->_filename);
+            delete samplernote->_filename;
+            delete samplernote;
+            return nullptr;
+        }
+        samplernote->_sampleIndex = indexOfFile;
+        _loopsampler.addSample(indexOfFile, samplernote->_filename);
+        //Serial.printf("loaded sample: %d: %s\n", indexOfFile, samplernote->_filename);
+        return samplernote;
+    }
+
+    int getIndexOfSDWaveFile(const char *filenameToMatch) {
+        int index = 0;
+        for(auto && filename : _filenames) {
+            if (strcmp(filename, filenameToMatch) == 0) 
+                return index;
+            index++;
+        }
+        return -1;
+    }
+
+    void write_sample(File file, sdsampleplayernote *samplernote) {
+        size_t filename_length = strlen(samplernote->_filename);
+        varfieldWrite(file, filename_length);
+        file.write((const unsigned char *)samplernote->_filename, filename_length);
+        file.write( &(samplernote->_samplerNoteNumber), 1);
+        file.write( &(samplernote->_samplerNoteChannel), 1);
+        file.write( &(samplernote->_indexOfNoteToPlay), 1);
+    }
+
+    uint32_t varfieldRead(File &file, uint16_t &progress)
+    {
+        uint32_t ret = 0;
+        uint8_t byte_in;
+
+        for (;;)
+        {
+            if (file.available()) {
+                // return error
+                byte_in = file.read();
+                progress++;
+            } else return 0;
+            ret = (ret << 7) | (byte_in & 0x7f);
+            if (!(byte_in & 0x80))
+                return ret;
+        }
+    }
+    void varfieldWrite(File &file, unsigned int deltaticks) {
+        if (deltaticks < 128) {
+            file.write((const unsigned char *)&deltaticks, 1);
+            return;
+        } 
+
+        uint16_t lengthFieldSize = 0;
+        byte b[4];
+        
+        // read least signficicant bytes first
+        for (int i = 3; i >= 0; i--) {
+            b[i] = (byte)(deltaticks & 0x7f);
+            if(i < 3) // set the bit that indicates another byte still to follow... except on the least significant byte
+                b[i] |= 0x80;
+            deltaticks >>= 7;
+            lengthFieldSize++;
+            if (deltaticks < 1)
+                break;
+        }
+
+        for( int i=0; i < lengthFieldSize; i++) {  
+            file.write(&(b[4-lengthFieldSize+i]), 1);
+        }
+    }
+
 };
 
 #endif // TEENSY_AUDIO_SAMPLER_SAMPLEPLAYMIDICONTROLLER_H

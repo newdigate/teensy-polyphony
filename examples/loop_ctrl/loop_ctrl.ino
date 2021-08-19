@@ -38,6 +38,7 @@ AudioPlaySdResmp         *_voices[NUM_VOICES] = {&playSdWav1, &playSdWav2, &play
 void handleNoteOn(byte channel, byte pitch, byte velocity);
 void handleNoteOff(byte channel, byte pitch, byte velocity);
 void handleControlChange(byte channel, byte data1, byte data2);
+void printUsage();
 
 void setup() {
 
@@ -62,12 +63,27 @@ void setup() {
     _sampler.addVoices(_voices, NUM_VOICES);
 
     _controller.begin();
-    _controller.initialisation_prompt();
 }
 
 void loop() {
   myusb.Task();
   midi1.read();
+  if (Serial.available()) {
+        String s = Serial.readString();
+        if (s == "r\n") {
+            Serial.println("reset...");
+            _controller.initialize();
+        } else if (s == "l\n") {
+            Serial.println("loading samples...");
+            _controller.loadSamples("samples.smp");
+        } else if (s == "s\n") {
+            Serial.println("saving samples...");
+            _controller.writeSamples("samples.smp");
+        } else {
+            Serial.printf("unknown input: %s\r\n", s.c_str());
+            printUsage();
+        }
+    }
 }
 
 void handleNoteOn(byte channel, byte pitch, byte velocity) {
@@ -80,4 +96,14 @@ void handleNoteOff(byte channel, byte pitch, byte velocity) {
 
 void handleControlChange(byte channel, byte data1, byte data2) {
   _controller.midiChannleVoiceMessage(0xC0, data1, data2, channel);
+}
+
+void printUsage() {
+    Serial.println("------------------ usage ------------------");
+    Serial.println("press: ");
+    Serial.println("   'r' : reset control keys ");
+    Serial.println("   'l' : load project ");
+    Serial.println("   's' : save project ");
+    Serial.println("-------------------------------------------");
+    Serial.println();
 }

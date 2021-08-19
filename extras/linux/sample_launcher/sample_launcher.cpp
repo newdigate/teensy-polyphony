@@ -43,6 +43,7 @@ AudioPlaySdResmp           *_voices[NUM_VOICES] = {&playSdAudio1, &playSdAudio2,
 void handleNoteOn(byte channel, byte pitch, byte velocity);
 void handleNoteOff(byte channel, byte pitch, byte velocity);
 void handleControlChange(byte channel, byte data1, byte data2);
+void printUsage();
 
 void setup() {
     Serial.begin(9600);
@@ -69,12 +70,39 @@ void setup() {
     _sampler.addVoices(_voices, NUM_VOICES);
     
     _controller.begin();
-    _controller.initialisation_prompt();
+    printUsage();
+    //_controller.loadSamples("samples.smp");
 }
 
 void loop() {
     MIDI.read();
+    if (Serial.available()) {
+        String s = Serial.readString();
+        if (s == "r\n") {
+            Serial.println("reset...");
+            _controller.initialize();
+        } else if (s == "l\n") {
+            Serial.println("loading samples...");
+            _controller.loadSamples("samples.smp");
+        } else if (s == "s\n") {
+            Serial.println("saving samples...");
+            _controller.writeSamples("samples.smp");
+        } else {
+            Serial.printf("unknown input: %s\r\n", s.c_str());
+            printUsage();
+        }
+    }
     delay(1);
+}
+
+void printUsage() {
+    Serial.println("------------------ usage ------------------");
+    Serial.println("press: ");
+    Serial.println("   'r' : reset control keys ");
+    Serial.println("   'l' : load project ");
+    Serial.println("   's' : save project ");
+    Serial.println("-------------------------------------------");
+    Serial.println();
 }
 
 int main(int numArgs, char **args) {
