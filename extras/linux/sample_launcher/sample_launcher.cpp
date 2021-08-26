@@ -6,9 +6,15 @@
 #include <SD.h>
 #include <TeensyVariablePlayback.h>
 #include <TeensyPolyphony.h>
+#include <ST7735_t3.h>
+#include <st7735_opengl.h>
+#include <st7735_opengl_main.h>
+
 #include "RtMidiMIDI.h"
 #include "RtMidiTransport.h"
 #include "output_soundio.h"
+
+st7735_opengl tft = st7735_opengl();
 
 MIDI_CREATE_RTMIDI_INSTANCE(RtMidiMIDI, rtMIDI,  MIDI);
 
@@ -105,20 +111,14 @@ void printUsage() {
     Serial.println();
 }
 
-int main(int numArgs, char **args) {
+int st7735_main(int numArgs, char **args) {
     if (numArgs < 2)
     {
         std::cout << "usage: " << args[0] << " <path-to-SDCard>";
         exit(0);
     }
     std::cout << args[1] << std::endl;
-
-    initialize_mock_arduino();
     SD.setSDCardFolderPath(args[1]);
-    setup();
-    while(true){
-        loop();
-    }
 }
 
 void handleNoteOn(byte channel, byte pitch, byte velocity)

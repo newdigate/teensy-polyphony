@@ -29,6 +29,8 @@
 #include <SD.h>
 #include "loopsampler.h"
 #include "loopsamplerenums.h"
+#include "sampleplaymidicontrollerenums.h"
+#include "abstractdisplay.h"
 
 class sdsampleplayernote {
 public:
@@ -38,22 +40,6 @@ public:
     int _sampleIndex = -1;
     byte _indexOfNoteToPlay = 0;
     bool isPlaying = false;
-};
-
-enum playcontrollerstate {
-    playcontrollerstate_initialising = 0, // need to ascertain which midi notes and channels correspond to which control functions
-    playcontrollerstate_performing = 1,
-    playcontrollerstate_selecting_target = 2,
-    playcontrollerstate_editing_target = 3,
-};
-
-enum triggerctrlfunction {
-    triggerctrlfunction_none = 0,
-    triggerctrlfunction_changetriggertype = 1,
-    triggerctrlfunction_changedirection = 2,
-    triggerctrlfunction_changelooptype = 3,
-    triggerctrlfunction_changesample = 4,
-    triggerctrlfunction_selector_cc = 5,
 };
 
 class playcontrollerconfig {
@@ -261,9 +247,56 @@ private:
 
 };
 
+class SerialDisplay : public AbstractDisplay {
+public:
+    SerialDisplay() : _serialPort(Serial) {
+
+    }
+    SerialDisplay(HardwareSerial &serialPort) : _serialPort(serialPort) {
+
+    }
+
+    void switchMode(playcontrollerstate newstate) override {
+        _serialPort.print("Controller switched to ");
+        switch (newstate) {
+            case playcontrollerstate::playcontrollerstate_initialising: {
+                _serialPort.println("initialization");
+                break;
+            }
+            case playcontrollerstate::playcontrollerstate_performing: {
+                _serialPort.println("performing");
+                break;
+            }
+            case playcontrollerstate::playcontrollerstate_selecting_target: {
+                _serialPort.println("select note");
+                break;
+            }
+            case playcontrollerstate::playcontrollerstate_editing_target: {
+                _serialPort.println("editing note");
+                break;
+            }
+            default: {
+                _serialPort.print("(unknown)");
+                break;
+            }
+
+        }
+    }
+    void prompt(const char *text) override {
+        _serialPort.println(text);
+    }
+
+private:
+    HardwareSerial &_serialPort;
+};
+
 class sdsampleplayermidicontroller {
 public:
-    sdsampleplayermidicontroller(loopsampler &loopsampler) : _loopsampler(loopsampler) {
+    sdsampleplayermidicontroller(loopsampler &loopsampler) : _loopsampler(loopsampler), _display(nullptr) {
+
+    }
+
+    sdsampleplayermidicontroller(loopsampler &loopsampler, AbstractDisplay *display) : _loopsampler(loopsampler), _display(display) {
 
     }
 
@@ -329,7 +362,10 @@ public:
                         if (isNoteOn) {
                             _selected_ctrl_function = triggerctrlfunction_changesample;
                             _state = playcontrollerstate::playcontrollerstate_selecting_target;
-                            Serial.println("Select a trigger note to change the sample...");
+                            if (_display) {
+                                _display->switchMode(_state);
+                                _display->prompt("Select a trigger note to change the sample...");
+                            }
                         }
                         break;
                     }
@@ -479,6 +515,7 @@ public:
     }
 private:
     loopsampler &_loopsampler;
+    AbstractDisplay *_display;
     playcontrollerconfig _config;
     playcontrollerstate _state = playcontrollerstate::playcontrollerstate_initialising;
     sdsampleplayernote *_selected_target = nullptr;

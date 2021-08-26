@@ -15,6 +15,9 @@ set(HEADER_FILES
 		polyphonicsampler.h
 		TeensyPolyphony.h
 		sampleplaymidicontroller.h
+		sampleplaymidicontrollerenums.h
+		abstractdisplay.h
+		serialdisplay.h
 		loopsampler.h
 		loopsamplerenums.h)
 
