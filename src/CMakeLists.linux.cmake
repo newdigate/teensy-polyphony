@@ -16,6 +16,9 @@ include_directories(${teensy_x86_sd_stubs_INCLUDE_DIR})
 find_package(teensy_variable_playback)
 include_directories(${teensy_variable_playback_INCLUDE_DIR})
 
+find_package(teensy_st7735_linux_stubs)
+include_directories(${teensy_st7735_linux_stubs_INCLUDE_DIR})
+
 add_library(teensypolyphony STATIC ${HEADER_FILES} ${SOURCE_FILES})
 
 set_target_properties(teensypolyphony PROPERTIES PUBLIC_HEADER "${HEADER_FILES}")

@@ -20,57 +20,97 @@
  * THE SOFTWARE.
  */
 
-#ifndef TEENSY_AUDIO_SAMPLER_SERIALDISPLAY_H
-#define TEENSY_AUDIO_SAMPLER_SERIALDISPLAY_H
+#ifndef TEENSY_AUDIO_SAMPLER_ST7735DISPLAY_H
+#define TEENSY_AUDIO_SAMPLER_ST7735DISPLAY_H
 
 #include <Arduino.h>
+#include <ST7735_t3.h>
 #include "sampleplaymidicontrollerenums.h"
 #include "abstractdisplay.h"
+#include "extracolors.h"
 
-class SerialDisplay : public AbstractDisplay {
+class ST7735Display : public AbstractDisplay {
 public:
-    SerialDisplay(HardwareSerial &serialPort) : _serialPort(serialPort) {
+    ST7735Display(ST7735_t3 &tft) : _tft(tft) {
 
     }
 
     void switchMode(playcontrollerstate newstate) override {
-        _serialPort.print("Controller switched to ");
+        _tft.setCursor(0,0);
+
         switch (newstate) {
             case playcontrollerstate::playcontrollerstate_initialising: {
-                _serialPort.println("initialization");
+                clearDisplay(ST77XX_BLACK);
+                clearTopArea(ST77XX_BLUE);
+                _tft.setTextColor(ST77XX_WHITE);
+                _tft.println("initializing...");
                 break;
             }
             case playcontrollerstate::playcontrollerstate_performing: {
-                _serialPort.println("performing");
+                clearDisplay(ST77XX_BLACK);
+                clearTopArea(ST77XX_COLOR_BRITISHRACINGGREEN);
+                _tft.setTextColor(ST77XX_WHITE);
+                _tft.println("performing...");
                 break;
             }
             case playcontrollerstate::playcontrollerstate_selecting_target: {
-                _serialPort.println("select note");
+                clearDisplay(ST77XX_BLACK);
+                clearTopArea(ST77XX_COLOR_VIOLET);
+                _tft.setTextColor(ST77XX_WHITE);
+                _tft.println("select a key...");
                 break;
             }
             case playcontrollerstate::playcontrollerstate_editing_target: {
-                _serialPort.println("editing note");
+                clearDisplay(ST77XX_BLACK);
+                clearTopArea(ST77XX_RED);
+                _tft.setTextColor(ST77XX_WHITE);
+                _tft.println("editing...");
                 break;
             }
             default: {
-                _serialPort.print("(unknown)");
+                clearDisplay(ST77XX_BLACK);
+                clearTopArea(ST77XX_BLACK);
+                _tft.setTextColor(ST77XX_BLACK);
+                _tft.println("not sure...");
                 break;
             }
-
         }
     }
     
     void prompt(const char *text) override {
-        _serialPort.printf("prompt: %s\n", text);
+        clearPromptArea(ST77XX_BLACK);
+        _tft.setCursor(0,10);
+        _tft.setTextColor(ST77XX_WHITE);
+        _tft.println(text);
     }
 
     void displayFileName(const char *text) override {
-        _serialPort.printf("filename: %s\n", text);
+        clearFilenameArea(ST77XX_BLACK);
+        _tft.setCursor(0,40);
+        _tft.setTextColor(ST77XX_WHITE);
+        _tft.setTextSize(2);
+        _tft.println(text);
+        _tft.setTextSize(1);    
     }
 
-
 private:
-    HardwareSerial &_serialPort;
+    ST7735_t3 &_tft;
+
+    void clearDisplay(uint16_t color) {
+        _tft.fillRect(0, 0, 127, 127, color);
+    }
+
+    void clearTopArea(uint16_t color) {
+        _tft.fillRect(0, 0, 127, 9, color);
+    }
+
+    void clearPromptArea(uint16_t color) {
+        _tft.fillRect(0, 10, 127, 39, color);
+    }
+
+    void clearFilenameArea(uint16_t color) {
+        _tft.fillRect(0, 40, 127, 64, color);
+    }
 };
 
-#endif // TEENSY_AUDIO_SAMPLER_SERIALDISPLAY_H
+#endif // TEENSY_AUDIO_SAMPLER_ST7735DISPLAY_H

@@ -20,17 +20,9 @@
  * THE SOFTWARE.
  */
 
-#ifndef TEENSY_AUDIO_SAMPLER_ABSTRACTDISPLAY_H
-#define TEENSY_AUDIO_SAMPLER_ABSTRACTDISPLAY_H
+#ifndef TEENSY_AUDIO_SAMPLER_EXTRACOLORS_H
+#define TEENSY_AUDIO_SAMPLER_EXTRACOLORS_H
 
-#include "../loopsamplerenums.h"
-#include "sampleplaymidicontrollerenums.h"
-
-class AbstractDisplay {
-public:
-    virtual void switchMode(playcontrollerstate newstate) = 0;
-    virtual void prompt(const char *text) = 0;
-    virtual void displayFileName(const char *text) = 0;
-};
-
-#endif // TEENSY_AUDIO_SAMPLER_ABSTRACTDISPLAY_H
+#define ST77XX_COLOR_BRITISHRACINGGREEN 0x0204
+#define ST77XX_COLOR_VIOLET 0x598A
+#endif // TEENSY_AUDIO_SAMPLER_EXTRACOLORS_H

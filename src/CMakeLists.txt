@@ -18,6 +18,8 @@ set(HEADER_FILES
 		playcontroller/sampleplaymidicontrollerenums.h
 		playcontroller/abstractdisplay.h
 		playcontroller/serialdisplay.h
+		playcontroller/st7735display.h
+		playcontroller/extracolors.h
 		loopsampler.h
 		loopsamplerenums.h)
 

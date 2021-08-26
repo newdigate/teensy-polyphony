@@ -288,17 +288,14 @@ private:
 
 class sdsampleplayermidicontroller {
 public:
-    sdsampleplayermidicontroller(loopsampler &loopsampler) : _loopsampler(loopsampler), _display(nullptr) {
-
-    }
-
-    sdsampleplayermidicontroller(loopsampler &loopsampler, AbstractDisplay *display) : _loopsampler(loopsampler), _display(display) {
+    sdsampleplayermidicontroller(loopsampler &loopsampler, AbstractDisplay &display) : _loopsampler(loopsampler), _display(display) {
 
     }
 
     void initialize() {
         _config.reset();
         _state = playcontrollerstate::playcontrollerstate_initialising;
+        _display.switchMode(_state);
         _config.prompt();
     }
 
@@ -308,6 +305,7 @@ public:
         if (_config.readReadFromFile("device.ctl")) {
             Serial.printf("loaded settings from file.\n");
             _state = playcontrollerstate::playcontrollerstate_performing;
+            _display.switchMode(_state);
         } else {
             _config.prompt();
         }
@@ -327,7 +325,7 @@ public:
                     _config.configure(data1, channel);
                     if (_config.complete()) {
                         _state = playcontrollerstate::playcontrollerstate_performing;
-                        Serial.printf("[controller configuration complete - switching to performing mode]\n");
+                        _display.switchMode(_state);
                     }
                 break;
             }
@@ -358,29 +356,30 @@ public:
                         if (isNoteOn) {
                             _selected_ctrl_function = triggerctrlfunction_changesample;
                             _state = playcontrollerstate::playcontrollerstate_selecting_target;
-                            if (_display) {
-                                _display->switchMode(_state);
-                                _display->prompt("Select a trigger note to change the sample...");
-                            }
+                            _display.switchMode(_state);
+                            _display.prompt("Select a trigger note to change the sample...");
                         }
                         break;
                     }
                     case triggerctrlfunction_changedirection: {
                         _selected_ctrl_function = triggerctrlfunction_changedirection;
                         _state = playcontrollerstate::playcontrollerstate_selecting_target;
-                        Serial.println("Select a trigger note to change direction...");
+                        _display.switchMode(_state);
+                        _display.prompt("Select a trigger note to change the direction...");
                         break;
                     }
                     case triggerctrlfunction_changelooptype: {
                         _selected_ctrl_function = triggerctrlfunction_changelooptype;
                         _state = playcontrollerstate::playcontrollerstate_selecting_target;
-                        Serial.println("Select a trigger note to change looptype...");
+                        _display.switchMode(_state);
+                        _display.prompt("Select a trigger note to change looptype...");
                         break;
                     }
                     case triggerctrlfunction_changetriggertype: {
                         _selected_ctrl_function = triggerctrlfunction_changetriggertype;
                         _state = playcontrollerstate::playcontrollerstate_selecting_target;
-                        Serial.println("Select a trigger note to change trigger type...");
+                        _display.switchMode(_state);
+                        _display.prompt("Select a trigger note to change trigger type...");
                         break;
                     }                                        
                 }
@@ -398,6 +397,7 @@ public:
                     }
                     Serial.printf("[selected note=%d, channel=%d]\n", data1, channel);
                     _state = playcontrollerstate::playcontrollerstate_editing_target;
+                    _display.switchMode(_state);
                 }
                 break;
             }
@@ -407,7 +407,7 @@ public:
                     // the note pressed was the select ctrl function already selecected, go back to performance mode
                     _state = playcontrollerstate_performing;
                     _selected_ctrl_function = triggerctrlfunction_none;
-                    Serial.println("[switch back to performance mode]");
+                    _display.switchMode(_state);
                     break;
                 }
 
@@ -446,9 +446,7 @@ public:
                                 memcpy(_selected_target->_filename, _filenames[sampleIndex], strlen(_filenames[sampleIndex]) );
                                 
                                 _selected_target->_indexOfNoteToPlay = sampleIndex;
-
-                                
-                                Serial.printf("sample %d, %d changed sample to %s (sampleIndex=%d)\n", _selected_target->_samplerNoteNumber, _selected_target->_samplerNoteChannel, _selected_target->_filename, sampleIndex);
+                                _display.displayFileName(_selected_target->_filename);
                             }
                             break;
                         }
@@ -511,7 +509,7 @@ public:
     }
 private:
     loopsampler &_loopsampler;
-    AbstractDisplay *_display;
+    AbstractDisplay &_display;
     playcontrollerconfig _config;
     playcontrollerstate _state = playcontrollerstate::playcontrollerstate_initialising;
     sdsampleplayernote *_selected_target = nullptr;

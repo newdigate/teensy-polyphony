@@ -9,7 +9,7 @@
 #include <ST7735_t3.h>
 #include <st7735_opengl.h>
 #include <st7735_opengl_main.h>
-
+#include "playcontroller/st7735display.h"
 #include "RtMidiMIDI.h"
 #include "RtMidiTransport.h"
 #include "output_soundio.h"
@@ -42,7 +42,8 @@ AudioConnection          patchCord10(mixerRight, 0, sio_out1, 1);
 // GUItool: end automatically generated code
 
 loopsampler        _sampler;
-sdsampleplayermidicontroller _controller(_sampler);
+ST7735Display      _st7735display(tft);
+sdsampleplayermidicontroller _controller(_sampler, _st7735display);
 
 AudioPlaySdResmp           *_voices[NUM_VOICES] = {&playSdAudio1, &playSdAudio2, &playSdAudio3, &playSdAudio4};
 
@@ -60,7 +61,7 @@ void setup() {
         Serial.println("Unable to access the SD card...");
         delay(500);
     }
-
+    tft.initR(INITR_144GREENTAB); 
 
     // Connect the handleNoteOn function to the library,
     // so it is called upon reception of a NoteOn.

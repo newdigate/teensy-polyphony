@@ -4,6 +4,8 @@
 #include <TeensyPolyphony.h>
 #include <TeensyVariablePlayback.h>
 #include "USBHost_t36.h"
+#include <st7735_t3.h>
+#include "playcontroller/st7735display.h"
 
 USBHost myusb;
 MIDIDevice midi1(myusb);
@@ -30,9 +32,17 @@ AudioConnection          patchCord10(mixerRight, 0, tdm_out, 2);
 AudioControlCS42448      audioShield;
 
 // GUItool: end automatically generated code
+#define TFT_SCLK 13     // SCLK can also use pin 14
+#define TFT_MOSI 11     // MOSI can also use pin 7
+#define TFT_CS   6      // CS & DC can use pins 2, 6, 9, 10, 15, 20, 21, 22, 23
+#define TFT_DC    2     //  but certain pairs must NOT be used: 2+10, 6+9, 20+23, 21+22
+#define TFT_RST   -1    // RST can use any pin
+
+ST7735_t3 tft = ST7735_t3(TFT_CS, TFT_DC, TFT_RST);
 
 loopsampler              _sampler;
-sdsampleplayermidicontroller _controller(_sampler);
+ST7735Display            _st7735display(tft);
+sdsampleplayermidicontroller _controller(_sampler, _st7735display);
 AudioPlaySdResmp         *_voices[NUM_VOICES] = {&playSdWav1, &playSdWav2, &playSdWav3, &playSdWav4};
 
 void handleNoteOn(byte channel, byte pitch, byte velocity);
@@ -53,7 +63,8 @@ void setup() {
         Serial.println("Unable to access the SD card...");
         delay(500);
     }
-
+    tft.initR(INITR_144GREENTAB);
+    tft.setRotation(3);
     myusb.begin();
 
     midi1.setHandleNoteOff(handleNoteOff);
