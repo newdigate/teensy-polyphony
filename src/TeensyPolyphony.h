@@ -26,6 +26,6 @@
 #include "sampler.h"
 #include "stringsampler.h"
 #include "loopsampler.h"
-#include "sampleplaymidicontroller.h"
+#include "playcontroller/sampleplaymidicontroller.h"
 
-#endif TEENSYPOLYPHONY_TEENSYAUDIOSAMPLER_H
+#endif //TEENSYPOLYPHONY_TEENSYAUDIOSAMPLER_H

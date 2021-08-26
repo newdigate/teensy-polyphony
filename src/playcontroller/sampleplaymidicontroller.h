@@ -27,8 +27,8 @@
 #include <vector>
 #include <map>
 #include <SD.h>
-#include "loopsampler.h"
-#include "loopsamplerenums.h"
+#include "../loopsampler.h"
+#include "../loopsamplerenums.h"
 #include "sampleplaymidicontrollerenums.h"
 #include "abstractdisplay.h"
 

@@ -23,7 +23,7 @@
 #ifndef TEENSY_AUDIO_SAMPLER_ABSTRACTDISPLAY_H
 #define TEENSY_AUDIO_SAMPLER_ABSTRACTDISPLAY_H
 
-#include "loopsamplerenums.h"
+#include "../loopsamplerenums.h"
 #include "sampleplaymidicontrollerenums.h"
 
 class AbstractDisplay {
