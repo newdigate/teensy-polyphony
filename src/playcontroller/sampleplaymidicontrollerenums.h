@@ -19,13 +19,24 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#ifndef TEENSYPOLYPHONY_TEENSYAUDIOSAMPLER_H
-#define TEENSYPOLYPHONY_TEENSYAUDIOSAMPLER_H
 
-#include "polyphonicsampler.h"
-#include "sampler.h"
-#include "stringsampler.h"
-#include "loopsampler.h"
-#include "playcontroller/sampleplaymidicontroller.h"
+#ifndef TEENSY_AUDIO_SAMPLER_SAMPLEPLAYMIDICONTROLLERENUMS_H
+#define TEENSY_AUDIO_SAMPLER_SAMPLEPLAYMIDICONTROLLERENUMS_H
 
-#endif //TEENSYPOLYPHONY_TEENSYAUDIOSAMPLER_H
+enum playcontrollerstate {
+    playcontrollerstate_initialising = 0, // need to ascertain which midi notes and channels correspond to which control functions
+    playcontrollerstate_performing = 1,
+    playcontrollerstate_selecting_target = 2,
+    playcontrollerstate_editing_target = 3,
+};
+
+enum triggerctrlfunction {
+    triggerctrlfunction_none = 0,
+    triggerctrlfunction_changetriggertype = 1,
+    triggerctrlfunction_changedirection = 2,
+    triggerctrlfunction_changelooptype = 3,
+    triggerctrlfunction_changesample = 4,
+    triggerctrlfunction_selector_cc = 5,
+};
+
+#endif // TEENSY_AUDIO_SAMPLER_SAMPLEPLAYMIDICONTROLLERENUMS_H

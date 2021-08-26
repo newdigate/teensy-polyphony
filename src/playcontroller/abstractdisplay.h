@@ -19,13 +19,18 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#ifndef TEENSYPOLYPHONY_TEENSYAUDIOSAMPLER_H
-#define TEENSYPOLYPHONY_TEENSYAUDIOSAMPLER_H
 
-#include "polyphonicsampler.h"
-#include "sampler.h"
-#include "stringsampler.h"
-#include "loopsampler.h"
-#include "playcontroller/sampleplaymidicontroller.h"
+#ifndef TEENSY_AUDIO_SAMPLER_ABSTRACTDISPLAY_H
+#define TEENSY_AUDIO_SAMPLER_ABSTRACTDISPLAY_H
 
-#endif //TEENSYPOLYPHONY_TEENSYAUDIOSAMPLER_H
+#include "../loopsamplerenums.h"
+#include "sampleplaymidicontrollerenums.h"
+
+class AbstractDisplay {
+public:
+    virtual void switchMode(playcontrollerstate newstate) = 0;
+    virtual void prompt(const char *text) = 0;
+    virtual void displayFileName(const char *text) = 0;
+};
+
+#endif // TEENSY_AUDIO_SAMPLER_ABSTRACTDISPLAY_H

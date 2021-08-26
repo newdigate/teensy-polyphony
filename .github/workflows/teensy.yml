@@ -41,6 +41,12 @@ jobs:
 
     - uses: actions/checkout@v2
       with:
+        repository: PaulStoffregen/ST7735_t3.git
+        path: deps/ST7735_t3
+        ref: master
+
+    - uses: actions/checkout@v2
+      with:
         repository: PaulStoffregen/SerialFlash
         path: deps/SerialFlash
         ref: master
@@ -91,7 +97,13 @@ jobs:
         path: deps/MIDI
         fetch-depth: 1
         ref: master
-        
+
+    - uses: actions/checkout@v2
+      with:
+        repository: PaulStoffregen/ST7735_t3
+        path: deps/ST7735_t3
+        ref: master
+
     - name: download toolchain
       run: |
         curl  -L "https://developer.arm.com/-/media/Files/downloads/gnu-rm/9-2019q4/RC2.1/gcc-arm-none-eabi-9-2019-q4-major-x86_64-linux.tar.bz2" --output /tmp/gcc-arm-none-eabi.tar.bz2
