@@ -4,7 +4,7 @@
 #include <TeensyPolyphony.h>
 #include <TeensyVariablePlayback.h>
 #include "USBHost_t36.h"
-#include <st7735_t3.h>
+#include <ST7735_t3.h>
 #include "playcontroller/st7735display.h"
 
 USBHost myusb;
