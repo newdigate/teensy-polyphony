@@ -249,11 +249,7 @@ private:
 
 class SerialDisplay : public AbstractDisplay {
 public:
-    SerialDisplay() : _serialPort(Serial) {
-
-    }
     SerialDisplay(HardwareSerial &serialPort) : _serialPort(serialPort) {
-
     }
 
     void switchMode(playcontrollerstate newstate) override {
