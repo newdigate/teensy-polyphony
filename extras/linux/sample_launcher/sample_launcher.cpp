@@ -14,7 +14,7 @@
 #include "RtMidiTransport.h"
 #include "output_soundio.h"
 
-st7735_opengl tft = st7735_opengl();
+st7735_opengl tft = st7735_opengl(true, 20);
 
 MIDI_CREATE_RTMIDI_INSTANCE(RtMidiMIDI, rtMIDI,  MIDI);
 

@@ -53,14 +53,7 @@ public:
                 _tft.println("performing...");
                 break;
             }
-            case playcontrollerstate::playcontrollerstate_selecting_target: {
-                clearDisplay(ST77XX_BLACK);
-                clearTopArea(ST77XX_COLOR_VIOLET);
-                _tft.setTextColor(ST77XX_WHITE);
-                _tft.println("select a key...");
-                break;
-            }
-            case playcontrollerstate::playcontrollerstate_editing_target: {
+            case playcontrollerstate::playcontrollerstate_editing: {
                 clearDisplay(ST77XX_BLACK);
                 clearTopArea(ST77XX_RED);
                 _tft.setTextColor(ST77XX_WHITE);

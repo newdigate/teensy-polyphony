@@ -26,17 +26,25 @@
 enum playcontrollerstate {
     playcontrollerstate_initialising = 0, // need to ascertain which midi notes and channels correspond to which control functions
     playcontrollerstate_performing = 1,
-    playcontrollerstate_selecting_target = 2,
-    playcontrollerstate_editing_target = 3,
+    playcontrollerstate_editing = 2,
+};
+
+enum ctrlkeyorcc {
+    ctrlkeyorcc_none = 0,
+    ctrlkeyorcc_mode = 1,
+    ctrlkeyorcc_ctrlsel = 2,
+    ctrlkeyorcc_valsel = 3
 };
 
 enum triggerctrlfunction {
     triggerctrlfunction_none = 0,
-    triggerctrlfunction_changetriggertype = 1,
-    triggerctrlfunction_changedirection = 2,
-    triggerctrlfunction_changelooptype = 3,
-    triggerctrlfunction_changesample = 4,
-    triggerctrlfunction_selector_cc = 5,
+    triggerctrlfunction_trigger = 1,
+    triggerctrlfunction_direction = 2,
+    triggerctrlfunction_looptype = 3,
+    triggerctrlfunction_selectsample = 4,
+    triggerctrlfunction_tune = 5,
+    triggerctrlfunction_volume = 6,
+    triggerctrlfunction_pan = 7
 };
 
 #endif // TEENSY_AUDIO_SAMPLER_SAMPLEPLAYMIDICONTROLLERENUMS_H

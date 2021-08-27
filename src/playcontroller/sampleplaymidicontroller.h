@@ -44,18 +44,16 @@ public:
 
 class playcontrollerconfig {
 public:
-    const char *prompts[5] = {"Trigger type", "Direction", "Loop type", "sample", "value selector"}; 
-    byte midinotenum_changeTriggerType, midichannelnum_changeTriggerType,
-         midinotenum_changeDirection,   midichannelnum_changeDirection,
-         midinotenum_changeLoopType,    midichannelnum_changeLoopType,
-         midinotenum_changeSample,      midichannelnum_changeSample,
+    const char *prompts[3] = {"mode", "ctrl select", "value select"}; 
+    byte midinotenum_changeMode,        midichannelnum_changeMode,
+         midiccnum_ctrlSelector,        midichannelnum_ctrlSelector,
          midiccnum_valueSelector,       midichannelnum_valueSelector;
     byte num_ctrl_fns_configured = 0;
-    
+  
     void prompt() {
-        if (num_ctrl_fns_configured < 4 ) {
-            Serial.printf("%d: please press a midi note to select control key for '%s'.\n", num_ctrl_fns_configured, prompts[num_ctrl_fns_configured]);
-        } else if (num_ctrl_fns_configured == 4) {
+        if (num_ctrl_fns_configured < 1 ) {
+            Serial.printf("%d: please select a button to configure ctrl key for '%s'.\n", num_ctrl_fns_configured, prompts[num_ctrl_fns_configured]);
+        } else if (num_ctrl_fns_configured < 3) {
             Serial.printf("%d: please change a custom control (cc) to select a '%s'.\n", num_ctrl_fns_configured, prompts[num_ctrl_fns_configured]);
         }else 
             Serial.printf("%d: no more functions to configure...\n", num_ctrl_fns_configured);
@@ -68,62 +66,31 @@ public:
         }
         switch (num_ctrl_fns_configured) {
             case 0: {
-                midinotenum_changeTriggerType = noteOrCcNum;
-                midichannelnum_changeTriggerType = channel;
+                midinotenum_changeMode = noteOrCcNum;
+                midichannelnum_changeMode = channel;
+                Serial.printf("[configured: button '%s' as note=%d, channel=%d]\n", prompts[num_ctrl_fns_configured], noteOrCcNum, channel);
                 num_ctrl_fns_configured++;
-                Serial.printf("%[configured: change trigger type ctrl key=%d, channel=%d]\n", noteOrCcNum, channel);
                 break;
             }
-            case 1: {
-                if (!note_is_ctrl_function_key(noteOrCcNum, channel, 
-                        triggerctrlfunction::triggerctrlfunction_changetriggertype)) {
-                    midinotenum_changeDirection = noteOrCcNum;
-                    midichannelnum_changeDirection = channel;
-                    num_ctrl_fns_configured++;
-                    Serial.printf("[configured: change direction ctrl key=%d, channel=%d]\n", noteOrCcNum, channel);
-                } else {
-                    Serial.printf("WARN: %d: conflict: that note/channel is being used already\n", num_ctrl_fns_configured);
-                }
-                break;
-            }
-            case 2: {
-                if (!note_is_ctrl_function_key(noteOrCcNum, channel, 
-                        triggerctrlfunction::triggerctrlfunction_changetriggertype) 
-                    && !note_is_ctrl_function_key(noteOrCcNum, channel, 
-                        triggerctrlfunction::triggerctrlfunction_changedirection)) {
-                    midinotenum_changeLoopType = noteOrCcNum;
-                    midichannelnum_changeLoopType = channel;
-                    num_ctrl_fns_configured++;
-                    Serial.printf("[configured: change loop type ctrl key=%d, channel=%d]\n", noteOrCcNum, channel);
-                } else {
-                    Serial.printf("WARN: %d: conflict: that note/channel is being used already\n", num_ctrl_fns_configured);
-                }
-                break;     
-            }                 
-            case 3: {
-                if (!note_is_ctrl_function_key(noteOrCcNum, channel, 
-                        triggerctrlfunction::triggerctrlfunction_changetriggertype) 
-                    && !note_is_ctrl_function_key(noteOrCcNum, channel, 
-                        triggerctrlfunction::triggerctrlfunction_changedirection)
-                    && !note_is_ctrl_function_key(noteOrCcNum, channel, 
-                        triggerctrlfunction::triggerctrlfunction_changelooptype)) {
-                    midinotenum_changeSample = noteOrCcNum;
-                    midichannelnum_changeSample = channel;
-                    num_ctrl_fns_configured++;
-                    Serial.printf("[configured: change sample select ctrl key=%d, channel=%d]\n", noteOrCcNum, channel);
 
-                } else {
-                    Serial.printf("WARN: %d: conflict: that note/channel is being used already\n", num_ctrl_fns_configured);
-                }
+            case 1: {
+                midiccnum_ctrlSelector = noteOrCcNum;
+                midichannelnum_ctrlSelector = channel;
+                Serial.printf("[configured: rotary '%s' as cc=%d, channel=%d]\n", prompts[num_ctrl_fns_configured], noteOrCcNum, channel);
+                num_ctrl_fns_configured++;
                 break;     
             }
-            case 4: {
-                midiccnum_valueSelector = noteOrCcNum;
-                midichannelnum_valueSelector = channel;
-                num_ctrl_fns_configured++;
-                Serial.printf("[configured: value-selector cc=%d, channel=%d]\n", noteOrCcNum, channel);
+
+            case 2: {
+                if (!iscontrolcc(noteOrCcNum, channel)) {
+                    midiccnum_valueSelector = noteOrCcNum;
+                    midichannelnum_valueSelector = channel;
+                    Serial.printf("[configured: rotary '%s' as cc=%d, channel=%d]\n", prompts[num_ctrl_fns_configured], noteOrCcNum, channel);
+                    num_ctrl_fns_configured++;
+                }
                 break;     
-            }            
+
+            }               
         }
         if (!complete())
             prompt();
@@ -133,20 +100,16 @@ public:
 
     void reset() {
         num_ctrl_fns_configured = 0;
-        midinotenum_changeTriggerType = 0;
-        midichannelnum_changeTriggerType = 0;
-        midinotenum_changeDirection = 0;
-        midichannelnum_changeDirection = 0;
-        midinotenum_changeLoopType = 0; 
-        midichannelnum_changeLoopType = 0;
-        midinotenum_changeSample = 0;    
-        midichannelnum_changeSample = 0;
-        midiccnum_valueSelector = 0;     
+        midinotenum_changeMode = 0;
+        midichannelnum_changeMode = 0;
+        midiccnum_ctrlSelector = 0;
+        midichannelnum_ctrlSelector = 0;
+        midiccnum_valueSelector = 0; 
         midichannelnum_valueSelector = 0;
     }
 
     bool complete() {
-        return num_ctrl_fns_configured >= 5;
+        return num_ctrl_fns_configured >= 3;
     }
 
     bool readReadFromFile(const char * filename) {
@@ -155,20 +118,22 @@ public:
             playcontrollerconfig config;
             size_t bytesRead = file.read((char*)&config, sizeof(playcontrollerconfig));
             file.close();
-            Serial.printf("config bytes read: %d\n", bytesRead);
+            
             if (bytesRead >= sizeof(playcontrollerconfig)) {
-                midinotenum_changeTriggerType      = config.midinotenum_changeTriggerType;
-                midichannelnum_changeTriggerType   = config.midichannelnum_changeTriggerType;
-                midinotenum_changeDirection        = config.midinotenum_changeDirection;
-                midichannelnum_changeDirection     = config.midichannelnum_changeDirection;
-                midinotenum_changeLoopType         = config.midinotenum_changeLoopType;
-                midichannelnum_changeLoopType      = config.midichannelnum_changeLoopType;        
-                midinotenum_changeSample           = config.midinotenum_changeSample;    
-                midichannelnum_changeSample        = config.midichannelnum_changeSample;    
-                midiccnum_valueSelector            = config.midiccnum_valueSelector;    
-                midichannelnum_valueSelector       = config.midichannelnum_valueSelector;
+                midinotenum_changeMode              = config.midinotenum_changeMode;
+                midichannelnum_changeMode           = config.midichannelnum_changeMode;
+                midiccnum_ctrlSelector              = config.midiccnum_ctrlSelector;    
+                midichannelnum_ctrlSelector         = config.midichannelnum_ctrlSelector;
+                midiccnum_valueSelector             = config.midiccnum_valueSelector;    
+                midichannelnum_valueSelector        = config.midichannelnum_valueSelector;
+
+                Serial.printf("loaded: change mode: midinote=%d channel=%d\n", midinotenum_changeMode, midichannelnum_changeMode);
+                Serial.printf("loaded: control selector: midicc=%d channel=%d\n", midiccnum_ctrlSelector, midichannelnum_ctrlSelector);
+                Serial.printf("loaded: value selector: midicc=%d channel=%d\n", midiccnum_valueSelector, midichannelnum_valueSelector);
+
                 return true;
-            }
+            }  
+            Serial.printf("failed to load config - bytes read: %d\n", bytesRead);
             return false;
         } else {
             return false;
@@ -179,54 +144,45 @@ public:
         File file = SD.open(filename, O_WRITE);
         if (file) {
             size_t bytesWritten = file.write((const unsigned char*)this, sizeof(playcontrollerconfig));
-            //Serial.printf("config bytes written: %d\n", bytesWritten);
+            bool success = bytesWritten == sizeof(playcontrollerconfig);
+            if (success)
+                Serial.printf("config bytes written: %d\n", bytesWritten);
+            else 
+                Serial.printf("failed to write config: %d\n", bytesWritten);
             file.close();
-            return bytesWritten == sizeof(playcontrollerconfig);
+            return success;
         } 
+        Serial.printf("failed config bytes written - not able to open file: %s\n", filename);
         return false;
     }
 
-
     bool iscontrolkey(byte noteNum, byte channel) {
-        return getfunctionkey(false, noteNum, channel) == triggerctrlfunction_none;
+        return getfunctionkey(false, noteNum, channel) != ctrlkeyorcc::ctrlkeyorcc_none;
     }
 
     bool iscontrolcc(byte ccNum, byte channel) {
-        return getfunctionkey(true, ccNum, channel) == triggerctrlfunction_selector_cc;
+        return getfunctionkey(true, ccNum, channel) != ctrlkeyorcc::ctrlkeyorcc_none;
     }
 
-    triggerctrlfunction getfunctionkey(bool isCC, byte noteNum, byte channel) {
+    ctrlkeyorcc getfunctionkey(bool isCC, byte noteNum, byte channel) {
         if (!isCC) {
-            if (note_is_ctrl_function_key(noteNum, channel,  triggerctrlfunction_changedirection))
-                return triggerctrlfunction_changedirection;
-
-            if (note_is_ctrl_function_key(noteNum, channel, triggerctrlfunction_changelooptype ))
-                return triggerctrlfunction_changelooptype;
-
-            if (note_is_ctrl_function_key(noteNum, channel, triggerctrlfunction_changesample ))
-                return triggerctrlfunction_changesample;
-
-            if (note_is_ctrl_function_key(noteNum, channel, triggerctrlfunction_changetriggertype ))
-                return triggerctrlfunction_changetriggertype;
+            if (note_is_ctrl_function_key(noteNum, channel, ctrlkeyorcc::ctrlkeyorcc_mode))
+                return ctrlkeyorcc::ctrlkeyorcc_mode;
         } else {
             // midi cc
-            if (ccnum_is_ctrl_special_controller(noteNum, channel, triggerctrlfunction_selector_cc ))
-                return triggerctrlfunction_selector_cc;
+            if (ccnum_is_ctrl_special_controller(noteNum, channel, ctrlkeyorcc::ctrlkeyorcc_ctrlsel ))
+                return ctrlkeyorcc::ctrlkeyorcc_ctrlsel;
+            else if (ccnum_is_ctrl_special_controller(noteNum, channel, ctrlkeyorcc::ctrlkeyorcc_valsel ))
+                return ctrlkeyorcc::ctrlkeyorcc_valsel;
         }
-        return triggerctrlfunction_none;
+        return ctrlkeyorcc::ctrlkeyorcc_none;
     }
 
 private:
-    bool note_is_ctrl_function_key(byte note, byte channel, triggerctrlfunction funct) {
+    bool note_is_ctrl_function_key(byte note, byte channel, ctrlkeyorcc funct) {
         switch (funct) {
-            case triggerctrlfunction::triggerctrlfunction_changetriggertype:
-                return (note == midinotenum_changeTriggerType && channel == midichannelnum_changeTriggerType);
-            case triggerctrlfunction::triggerctrlfunction_changedirection:
-                return (note == midinotenum_changeDirection && channel == midichannelnum_changeDirection);
-            case triggerctrlfunction::triggerctrlfunction_changelooptype:
-                return (note == midinotenum_changeLoopType && channel == midichannelnum_changeLoopType);
-            case triggerctrlfunction::triggerctrlfunction_changesample:
-                return (note == midinotenum_changeSample && channel == midichannelnum_changeSample);
+            case ctrlkeyorcc::ctrlkeyorcc_mode:
+                return (note == midinotenum_changeMode && channel == midichannelnum_changeMode);
             default:{
                 Serial.printf("Not sure about ctrl function #%d\n", (int)funct);
                 return false;
@@ -234,10 +190,12 @@ private:
         }
     }
 
-    bool ccnum_is_ctrl_special_controller(byte ccnum, byte channel, triggerctrlfunction funct) {
+    bool ccnum_is_ctrl_special_controller(byte ccnum, byte channel, ctrlkeyorcc funct) {
         switch (funct) {
-            case triggerctrlfunction::triggerctrlfunction_selector_cc:
-                return (ccnum == midiccnum_valueSelector && channel == midichannelnum_valueSelector);                
+            case ctrlkeyorcc::ctrlkeyorcc_ctrlsel:
+                return (ccnum == midiccnum_ctrlSelector && channel == midichannelnum_ctrlSelector);    
+            case ctrlkeyorcc::ctrlkeyorcc_valsel:
+                return (ccnum == midiccnum_valueSelector && channel == midichannelnum_valueSelector);               
             default:{
                 Serial.printf("Not sure about cc ctrl function #%d\n", (int)funct);
                 return false;
@@ -263,12 +221,8 @@ public:
                 _serialPort.println("performing");
                 break;
             }
-            case playcontrollerstate::playcontrollerstate_selecting_target: {
-                _serialPort.println("select note");
-                break;
-            }
-            case playcontrollerstate::playcontrollerstate_editing_target: {
-                _serialPort.println("editing note");
+            case playcontrollerstate::playcontrollerstate_editing: {
+                _serialPort.println("editing");
                 break;
             }
             default: {
@@ -321,22 +275,23 @@ public:
 
             case playcontrollerstate_initialising : {
                 // we are learning the ctrl function keys 
-                if (isNoteOn || isCC ) // midi key-down or cc status nibble
+                if (isNoteOn || isCC ) { // midi key-down or cc status nibble
                     _config.configure(data1, channel);
                     if (_config.complete()) {
                         _state = playcontrollerstate::playcontrollerstate_performing;
                         _display.switchMode(_state);
                     }
+                }
                 break;
             }
             
             case playcontrollerstate_performing: {
 
-                triggerctrlfunction potentialFnKey = 
-                    (isCC || isNoteOn)? _config.getfunctionkey(isCC, data1, channel) : triggerctrlfunction_none;
+                ctrlkeyorcc potentialFnKey = 
+                    (isCC || isNoteOn)? _config.getfunctionkey(isCC, data1, channel) : ctrlkeyorcc::ctrlkeyorcc_none;
 
                 switch (potentialFnKey) {
-                    case triggerctrlfunction_none: {
+                    case ctrlkeyorcc::ctrlkeyorcc_none: {
                         // not a function key - regular performance note...
                         // try find a sample mapping for this fellow
                         sdsampleplayernote *sample = getSamplerNoteForNoteNum(data1, channel);
@@ -352,133 +307,124 @@ public:
                         }
                         break;
                     }
-                    case triggerctrlfunction_changesample: {
+                    case ctrlkeyorcc::ctrlkeyorcc_mode : {
                         if (isNoteOn) {
-                            _selected_ctrl_function = triggerctrlfunction_changesample;
-                            _state = playcontrollerstate::playcontrollerstate_selecting_target;
+                            _state = playcontrollerstate::playcontrollerstate_editing;
                             _display.switchMode(_state);
-                            _display.prompt("Select a trigger note to change the sample...");
+                            if (_selected_target == nullptr) {
+                                _display.prompt("please select a midi note");
+                            }
                         }
                         break;
-                    }
-                    case triggerctrlfunction_changedirection: {
-                        _selected_ctrl_function = triggerctrlfunction_changedirection;
-                        _state = playcontrollerstate::playcontrollerstate_selecting_target;
-                        _display.switchMode(_state);
-                        _display.prompt("Select a trigger note to change the direction...");
-                        break;
-                    }
-                    case triggerctrlfunction_changelooptype: {
-                        _selected_ctrl_function = triggerctrlfunction_changelooptype;
-                        _state = playcontrollerstate::playcontrollerstate_selecting_target;
-                        _display.switchMode(_state);
-                        _display.prompt("Select a trigger note to change looptype...");
-                        break;
-                    }
-                    case triggerctrlfunction_changetriggertype: {
-                        _selected_ctrl_function = triggerctrlfunction_changetriggertype;
-                        _state = playcontrollerstate::playcontrollerstate_selecting_target;
-                        _display.switchMode(_state);
-                        _display.prompt("Select a trigger note to change trigger type...");
-                        break;
-                    }                                        
-                }
-                break;
-            }
-            case playcontrollerstate_selecting_target: {
-                if (isNoteOn) {
-                    // midi key-down status
-                    _selected_target = getSamplerNoteForNoteNum(data1, channel);
-                    if (_selected_target == nullptr) {
-                        _selected_target = new sdsampleplayernote();
-                        _selected_target->_samplerNoteNumber = data1;
-                        _selected_target->_samplerNoteChannel = channel;                        
-                        _samples.push_back(_selected_target);
-                    }
-                    Serial.printf("[selected note=%d, channel=%d]\n", data1, channel);
-                    _state = playcontrollerstate::playcontrollerstate_editing_target;
-                    _display.switchMode(_state);
-                }
-                break;
-            }
-            case playcontrollerstate_editing_target: {
-                triggerctrlfunction fntype = _config.getfunctionkey(isCC, data1, channel);
-                if (fntype == _selected_ctrl_function) {
-                    // the note pressed was the select ctrl function already selecected, go back to performance mode
-                    _state = playcontrollerstate_performing;
-                    _selected_ctrl_function = triggerctrlfunction_none;
-                    _display.switchMode(_state);
-                    break;
-                }
-
-                if (fntype == triggerctrlfunction_selector_cc 
-                    && _selected_target != nullptr) {  
-                    
-                    switch (_selected_ctrl_function) {
-                        case triggerctrlfunction_none: {
-                            // shouldn't ever reach here...
-                            break;
-                        }
-
-                        case triggerctrlfunction_changetriggertype: {
-                            triggertype triggerType = (triggertype)round(data2 * 4.0 / 128.0); 
-                            sdloopaudiosample *sample = _loopsampler.findSampleForKey(_selected_target->_indexOfNoteToPlay);
-                            if (sample) {
-                                if (triggerType != sample->_triggertype){
-                                    sample->_triggertype = triggerType;
-                                    Serial.printf("sample %d, %d changed trigger type to %d: %s\n", _selected_target->_samplerNoteNumber, _selected_target->_samplerNoteChannel, (int)triggerType, getTriggerTypeName(triggerType));
-                                }
-                            }
-                            break;
-                        }
-
-                        case triggerctrlfunction_changesample: {
-                            size_t num_samples = _filenames.size();
-                            size_t sampleIndex = round(data2 * num_samples / 128.0);
-                            if (_selected_target->_sampleIndex != sampleIndex) {
-                                if (_selected_target->_filename) 
-                                    delete [] _selected_target->_filename;
-                                _selected_target->_sampleIndex = sampleIndex;
-                                if (sampleIndex >= num_samples )
-                                    sampleIndex = num_samples-1;
-                                size_t filename_length = strlen(_filenames[sampleIndex])+1;
-                                _selected_target->_filename = new char[filename_length] {0};
-                                memcpy(_selected_target->_filename, _filenames[sampleIndex], strlen(_filenames[sampleIndex]) );
-                                
-                                _selected_target->_indexOfNoteToPlay = sampleIndex;
-                                _display.displayFileName(_selected_target->_filename);
-                            }
-                            break;
-                        }
-
-                        case triggerctrlfunction_changedirection:{
-                            playdirection playDirection = (playdirection) round( data2 / 128.0); 
-                            sdloopaudiosample *sample = _loopsampler.findSampleForKey(_selected_target->_indexOfNoteToPlay);
-                            if (sample) {
-                                if (playDirection != sample->_playdirection){
-                                    sample->_playdirection = playDirection;
-                                    Serial.printf("sample %d, %d changed play dir to %s\n", _selected_target->_samplerNoteNumber, _selected_target->_samplerNoteChannel, getPlayDirectionName(playDirection));
-                                }
-                            }
-                            break;
-                        }
-
-                        case triggerctrlfunction_changelooptype: {
-                            playlooptype playLoopType = (playlooptype)(round(data2 * 2.0 / 128.0)); 
-                            sdloopaudiosample *sample = _loopsampler.findSampleForKey(_selected_target->_indexOfNoteToPlay);
-                            if (sample) {
-                                if (playLoopType != sample->_playlooptype){
-                                    sample->_playlooptype = playLoopType;
-                                    Serial.printf("sample %d, %d changed loop type to %s\n", _selected_target->_samplerNoteNumber, _selected_target->_samplerNoteChannel, getPlayLoopTypeName(playLoopType));
-                                }
-                            }
-                            break;
-                        }
                     }
                 }
                 break;
             }
 
+            case playcontrollerstate_editing: {
+                ctrlkeyorcc fntype = _config.getfunctionkey(isCC, data1, channel);
+
+                switch (fntype) {
+                    case ctrlkeyorcc::ctrlkeyorcc_none : {
+                        if (isNoteOn) {
+                            // midi key-down status
+                            _selected_target = getSamplerNoteForNoteNum(data1, channel);
+                            if (_selected_target == nullptr) {
+                                _selected_target = new sdsampleplayernote();
+                                _selected_target->_samplerNoteNumber = data1;
+                                _selected_target->_samplerNoteChannel = channel;                        
+                                _samples.push_back(_selected_target);
+                            }
+                            Serial.printf("[selected note=%d, channel=%d]\n", data1, channel);
+                        }
+                        break;
+                    }
+                    case ctrlkeyorcc::ctrlkeyorcc_valsel : {
+
+                        switch (_selected_ctrl_function) {
+                            case triggerctrlfunction::triggerctrlfunction_trigger: {
+                                triggertype triggerType = (triggertype)round(data2 * 4.0 / 128.0); 
+                                sdloopaudiosample *sample = _loopsampler.findSampleForKey(_selected_target->_indexOfNoteToPlay);
+                                if (sample) {
+                                    if (triggerType != sample->_triggertype){
+                                        sample->_triggertype = triggerType;
+                                        Serial.printf("sample %d, %d changed trigger type to %d: %s\n", _selected_target->_samplerNoteNumber, _selected_target->_samplerNoteChannel, (int)triggerType, getTriggerTypeName(triggerType));
+                                    }
+                                }
+                                break;
+                            }
+
+                            case triggerctrlfunction::triggerctrlfunction_selectsample: {
+                                size_t num_samples = _filenames.size();
+                                size_t sampleIndex = round(data2 * num_samples / 128.0);
+                                if (_selected_target->_sampleIndex != sampleIndex) {
+                                    if (_selected_target->_filename) 
+                                        delete [] _selected_target->_filename;
+                                    _selected_target->_sampleIndex = sampleIndex;
+                                    if (sampleIndex >= num_samples )
+                                        sampleIndex = num_samples-1;
+                                    size_t filename_length = strlen(_filenames[sampleIndex])+1;
+                                    _selected_target->_filename = new char[filename_length] {0};
+                                    memcpy(_selected_target->_filename, _filenames[sampleIndex], strlen(_filenames[sampleIndex]) );
+                                    
+                                    _selected_target->_indexOfNoteToPlay = sampleIndex;
+                                    _display.displayFileName(_selected_target->_filename);
+                                }
+                                break;
+                            }
+
+                            case triggerctrlfunction::triggerctrlfunction_direction:{
+                                playdirection playDirection = (playdirection) round( data2 / 128.0); 
+                                sdloopaudiosample *sample = _loopsampler.findSampleForKey(_selected_target->_indexOfNoteToPlay);
+                                if (sample) {
+                                    if (playDirection != sample->_playdirection){
+                                        sample->_playdirection = playDirection;
+                                        Serial.printf("sample %d, %d changed play dir to %s\n", _selected_target->_samplerNoteNumber, _selected_target->_samplerNoteChannel, getPlayDirectionName(playDirection));
+                                    }
+                                }
+                                break;
+                            }
+
+                            case triggerctrlfunction::triggerctrlfunction_looptype: {
+                                playlooptype playLoopType = (playlooptype)(round(data2 * 2.0 / 128.0)); 
+                                sdloopaudiosample *sample = _loopsampler.findSampleForKey(_selected_target->_indexOfNoteToPlay);
+                                if (sample) {
+                                    if (playLoopType != sample->_playlooptype){
+                                        sample->_playlooptype = playLoopType;
+                                        Serial.printf("sample %d, %d changed loop type to %s\n", _selected_target->_samplerNoteNumber, _selected_target->_samplerNoteChannel, getPlayLoopTypeName(playLoopType));
+                                    }
+                                }
+                                break;
+                            }
+                        
+                            default: {
+                                Serial.printf("not implemented\n");
+                                break;
+                            }
+                        }
+
+                        break;
+                    }
+                    case ctrlkeyorcc::ctrlkeyorcc_ctrlsel : {
+                        triggerctrlfunction ctrlfn = (triggerctrlfunction)round(data2 * 7.0 / 127.0); 
+                        if (ctrlfn != _selected_ctrl_function) {
+                            _selected_ctrl_function = ctrlfn;
+                            Serial.printf("control function changed to %s\n", getCtrlFunctionName(_selected_ctrl_function));
+                        }
+                        break;
+                    }         
+                    case ctrlkeyorcc::ctrlkeyorcc_mode : {
+                        if (isNoteOn) {
+                            // the 'change mode' key was pressed - go back to performance mode
+                            _state = playcontrollerstate_performing;
+                            _display.switchMode(_state);
+                        }
+                        break;
+                    }
+                }
+
+                break;
+            }
 
             default:
                 break;
@@ -513,7 +459,7 @@ private:
     playcontrollerconfig _config;
     playcontrollerstate _state = playcontrollerstate::playcontrollerstate_initialising;
     sdsampleplayernote *_selected_target = nullptr;
-    triggerctrlfunction _selected_ctrl_function = triggerctrlfunction::triggerctrlfunction_changetriggertype;
+    triggerctrlfunction _selected_ctrl_function = triggerctrlfunction::triggerctrlfunction_selectsample;
 
     std::vector<sdsampleplayernote*> _samples;
     std::vector<char *> _filenames;
@@ -572,6 +518,21 @@ private:
                 return note;
         }
         return nullptr;
+    }
+
+    static const char* getCtrlFunctionName(triggerctrlfunction fn){
+        switch (fn) {
+            case triggerctrlfunction_direction: return "direction";
+            case triggerctrlfunction_looptype: return "loop";
+            case triggerctrlfunction_none: return "n/a";
+            case triggerctrlfunction_pan: return "pan";
+            case triggerctrlfunction_selectsample: return "sample";
+            case triggerctrlfunction_trigger: return "trigger";
+            case triggerctrlfunction_tune: return "tune";
+            case triggerctrlfunction_volume: return "volume";
+            default :
+                return "not sure?";
+        }
     }
     static const char* getTriggerTypeName(triggertype tt){
         switch (tt) {
