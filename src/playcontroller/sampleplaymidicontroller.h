@@ -614,18 +614,18 @@ private:
         switch (loop_audiosample->_triggertype) {
             case triggertype_play_until_end :
             case triggertype_play_while_notedown : {
-                _loopsampler.noteEvent(sample->_indexOfNoteToPlay, 127, false, false); // turn it off first
-                _loopsampler.noteEvent(sample->_indexOfNoteToPlay, 127, true, false);
+                _loopsampler.noteEvent(sample->_indexOfNoteToPlay, 0, 127, false, false); // turn it off first
+                _loopsampler.noteEvent(sample->_indexOfNoteToPlay, 0, 127, true, false);
                 sample->isPlaying = true;
                 break;
             }
 
             case triggertype_play_until_subsequent_notedown: {
                 if (sample->isPlaying) {
-                    _loopsampler.noteEvent(sample->_indexOfNoteToPlay, 127, false, false); // turn it off 
+                    _loopsampler.noteEvent(sample->_indexOfNoteToPlay, 0, 127, false, false); // turn it off 
                     sample->isPlaying = false;
                 } else {
-                    _loopsampler.noteEvent(sample->_indexOfNoteToPlay, 127, true, false); // turn it on 
+                    _loopsampler.noteEvent(sample->_indexOfNoteToPlay, 0, 127, true, false); // turn it on 
                     sample->isPlaying = true;
                 }
                 break;
@@ -648,7 +648,7 @@ private:
             
             case triggertype_play_while_notedown :
             {
-                _loopsampler.noteEvent(sample->_indexOfNoteToPlay, 127, false, false); // turn it off 
+                _loopsampler.noteEvent(sample->_indexOfNoteToPlay, 0, 127, false, false); // turn it off 
                 sample->isPlaying = false;
                 break;
             }

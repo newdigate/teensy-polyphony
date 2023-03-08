@@ -57,8 +57,8 @@ public:
     using __base = basesampler<AudioPlaySdResmp, sdloopaudiosample>;
 
     loopsampler() : __base() {
-        __base::_polysampler.setNoteEventCallback( [&] (uint8_t voice, uint8_t noteNumber, uint8_t velocity, bool isNoteOn, bool retrigger) {
-            noteEventCallback(voice, noteNumber, velocity, isNoteOn, retrigger);
+        __base::_polysampler.setNoteEventCallback( [&] (uint8_t voice, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn, bool retrigger) {
+            noteEventCallback(voice, noteNumber, noteChannel, velocity, isNoteOn, retrigger);
         });
     }
 
@@ -87,7 +87,7 @@ public:
     }
 
  protected:
-    void noteEventCallback(uint8_t voice, uint8_t noteNumber, uint8_t velocity, bool isNoteOn, bool retrigger)    
+    void noteEventCallback(uint8_t voice, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn, bool retrigger)    
     {
         uint8_t numVoices = __base::_numVoices;
         if (voice < numVoices) {

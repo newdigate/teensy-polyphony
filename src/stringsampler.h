@@ -47,16 +47,17 @@ public:
 class stringsampler {
 public:
     stringsampler() : _polysampler() {
-        _polysampler.setNoteEventCallback( [&] (uint8_t voice, uint8_t noteNumber, uint8_t velocity, bool isNoteOn, bool retrigger) {
+        _polysampler.setNoteEventCallback( [&] (uint8_t voice, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn, bool retrigger) {
+            // ignore noteChannel
             noteEventCallback(voice, noteNumber, velocity, isNoteOn, retrigger);
         });
     }
 
-    void noteEvent(uint8_t noteNumber, uint8_t velocity, bool isNoteOn, bool retrigger) {
+    void noteEvent(uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn, bool retrigger) {
         if (isNoteOn && velocity > 0)
-            _polysampler.noteOn(noteNumber, velocity);
+            _polysampler.noteOn(noteNumber, velocity, noteChannel);
         else 
-            _polysampler.noteOff(noteNumber);
+            _polysampler.noteOff(noteNumber, noteChannel);
     }
     
     void addVoice(AudioSynthKarplusStrong  &strings) {

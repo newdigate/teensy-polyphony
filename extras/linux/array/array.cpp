@@ -34,13 +34,13 @@ void setup() {
 }
 
 void loop() {
-    _sampler.noteEvent(60, 128, true, false);
+    _sampler.noteEvent(60, 0, 128, true, false);
     delay(1000);
-    _sampler.noteEvent(72, 128, true, false);
+    _sampler.noteEvent(72, 0, 128, true, false);
     delay(1000);
-    _sampler.noteEvent(60, 128, false, false);
+    _sampler.noteEvent(60, 0, 128, false, false);
     delay(1000);
-    _sampler.noteEvent(72, 128, false, false);
+    _sampler.noteEvent(72, 0, 128, false, false);
     delay(1000);
 }
 

@@ -52,7 +52,7 @@ public:
         _numVoices = numVoices;
     }
 
-    void noteOn(uint8_t noteNumber, uint8_t velocity) {
+    void noteOn(uint8_t noteNumber, uint8_t velocity, uint8_t noteChannel) {
         int indexOfVoice = 255;
         bool isretrigger = false;
         if (activeNotes[noteNumber] == 255) {
@@ -73,26 +73,26 @@ public:
             isretrigger = true;
         }
         if (indexOfVoice != 255) {            
-            _noteEventFunction(indexOfVoice, noteNumber, velocity, true, isretrigger);
+            _noteEventFunction(indexOfVoice, noteNumber, noteChannel, velocity, true, isretrigger);
             voice_noteOn[indexOfVoice] = millis();
             Serial.printf("Voice %i plays note %i (%i, %i)\n", indexOfVoice, noteNumber, velocity, isretrigger);
         }
     }
 
-    void noteOff(uint8_t noteNumber) {
+    void noteOff(uint8_t noteNumber, uint8_t noteChannel) {
         uint8_t index = activeNotes[noteNumber];
         if (index == 255) {
             // note is not active, ignore
             return;
         }
 
-        _noteEventFunction(index, noteNumber, 0, false, false);
+        _noteEventFunction(index, noteNumber, 0, 0, false, false);
         activeNotes[noteNumber] = 255;
         activeVoices[index] = 255; // free the voice
         voice_noteOff[index] = millis();
     }
 
-    void setNoteEventCallback (std::function<void(uint8_t voice, uint8_t noteNumber, uint8_t velocity, bool isNoteOn, bool retrigger)> noteEventFunction) {
+    void setNoteEventCallback (std::function<void(uint8_t voice, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn, bool retrigger)> noteEventFunction) {
         _noteEventFunction =  noteEventFunction;
     }
 
@@ -101,13 +101,13 @@ public:
         for (int i=0; i<_numVoices; i++) {
             if (activeVoices[i] != 255) {
                 Serial.printf("turn off %d\n",activeVoices[i]);
-                noteOff(activeVoices[i]);
+                noteOff(activeVoices[i], 0);
             }
         }
     }
 
 private:
-    std::function<void(uint8_t voice, uint8_t noteNumber, uint8_t velocity, bool isNoteOn, bool retrigger)>  _noteEventFunction;
+    std::function<void(uint8_t voice, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn, bool retrigger)>  _noteEventFunction;
 
     uint8_t activeNotes[128];
     uint8_t activeVoices[MAX_VOICES];

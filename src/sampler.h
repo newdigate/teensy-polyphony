@@ -153,11 +153,11 @@ public:
     basesampler() : _polysampler() {
     }
 
-    void noteEvent(uint8_t noteNumber, uint8_t velocity, bool isNoteOn, bool retrigger) {
+    void noteEvent(uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn, bool retrigger) {
         if (isNoteOn && velocity > 0)
-            _polysampler.noteOn(noteNumber, velocity);
+            _polysampler.noteOn(noteNumber, velocity, noteChannel);
         else 
-            _polysampler.noteOff(noteNumber);
+            _polysampler.noteOff(noteNumber, noteChannel);
     }
 
     void addSample(TSampleType *sample) {
@@ -265,8 +265,8 @@ public:
     using __base = basesampler<TAudioPlay, audiosample>;
 
     audiosampler() : __base() {
-        __base::_polysampler.setNoteEventCallback( [&] (uint8_t voice, uint8_t noteNumber, uint8_t velocity, bool isNoteOn, bool retrigger) {
-            noteEventCallback(voice, noteNumber, velocity, isNoteOn, retrigger);
+        __base::_polysampler.setNoteEventCallback( [&] (uint8_t voice, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn, bool retrigger) {
+            noteEventCallback(voice, noteNumber, noteChannel, velocity, isNoteOn, retrigger);
         });
     }
 
@@ -281,7 +281,7 @@ public:
     }
 
  protected:
-    void noteEventCallback(uint8_t voice, uint8_t noteNumber, uint8_t velocity, bool isNoteOn, bool retrigger)    
+    void noteEventCallback(uint8_t voice, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn, bool retrigger)    
     {
         uint8_t numVoices = __base::_numVoices;
         if (voice < numVoices) {
