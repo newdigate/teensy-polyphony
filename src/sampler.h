@@ -32,15 +32,29 @@
 //template <unsigned MAX_NUM_POLYPHONY>
 class audiosample {
 public:
-    audiosample(uint8_t noteNumber, int16_t *data, uint32_t sampleLength, uint16_t numChannels) : 
+    audiosample(uint8_t noteNumber, uint8_t noteChannel) : 
         _noteNumber(noteNumber), 
+        _noteChannel(noteChannel),
+        _data(nullptr), 
+        _sampleLength(0), 
+        _numChannels(0),
+        _filename(nullptr),
+        _isSdFile(false),
+        _isWavFile(false)
+    {
+
+    }
+    audiosample(uint8_t noteNumber, uint8_t noteChannel, int16_t *data, uint32_t sampleLength, uint16_t numChannels) : 
+        _noteNumber(noteNumber), 
+        _noteChannel(noteChannel),
         _data(data), 
         _sampleLength(sampleLength), 
         _numChannels(numChannels) {
     }
 
-    audiosample(uint8_t noteNumber, const char *filename, uint16_t numChannels) : 
+    audiosample(uint8_t noteNumber, uint8_t noteChannel, const char *filename, uint16_t numChannels) : 
         _noteNumber(noteNumber), 
+        _noteChannel(noteChannel),
         _data(nullptr), 
         _sampleLength(0), 
         _numChannels(numChannels),
@@ -49,8 +63,9 @@ public:
         _isWavFile(false) {
     }
 
-    audiosample(uint8_t noteNumber, const char *filename) : 
+    audiosample(uint8_t noteNumber, uint8_t noteChannel, const char *filename) : 
         _noteNumber(noteNumber), 
+        _noteChannel(noteChannel),
         _data(nullptr), 
         _sampleLength(0), 
         _numChannels(0),
@@ -59,7 +74,9 @@ public:
         _isWavFile(true) {
     }
 
-    uint8_t _noteNumber;    
+    uint8_t _noteNumber;   
+    uint8_t _noteChannel;    
+
     int16_t *_data; 
     uint32_t _sampleLength;
     uint16_t _numChannels;
@@ -135,243 +152,323 @@ public:
     uint8_t _mixerChannel;
     uint8_t _mixerChannel2;
     bool _isStereo = false;
+    bool isPlaying() {
+        return _audioplayarray->isPlaying();
+    }
 };
 
-class relativepitchcalculator {
+template <typename TSample>
+class samplermodel {
+    public:
+        samplermodel() : 
+            _channelNotes()        
+        {
+        }
+
+        virtual ~samplermodel() {
+            for (auto && channelNoteMap : _channelNotes) {
+                for (auto &&  noteIndex : *(channelNoteMap.second))
+                    delete noteIndex.second;
+                delete channelNoteMap.second;
+            }
+        }
+
+        TSample* getNoteForChannelAndKey(uint8_t channel, uint8_t note) {
+            if (_channelNotes.find(channel) == _channelNotes.end() ) {
+                return nullptr;
+            }
+            std::map<uint8_t, TSample*>* channelNotes = _channelNotes[channel];
+            if (channelNotes->find(note) == channelNotes->end()){
+                return nullptr;
+            }
+
+            return (*channelNotes)[note];
+        }
+
+        TSample* allocateNote(uint8_t channel, uint8_t note, TSample *samplerNote) {
+            if (getNoteForChannelAndKey(channel, note) != nullptr){
+                // note is already allocated
+                return nullptr;
+            }
+            std::map<uint8_t, TSample*>* channelNotes = nullptr;
+            if (_channelNotes.find(channel) == _channelNotes.end() ) {
+                channelNotes = new std::map<uint8_t, TSample*>();
+                _channelNotes[channel] = channelNotes;
+            } else
+                channelNotes = _channelNotes[channel];
+
+            (*channelNotes)[note] = samplerNote;
+            return samplerNote;
+        }
+
+        TSample* findNearestSampleForNoteAndChannel(uint8_t noteNumber, uint channel) {
+            std::map<uint8_t, TSample*>* channelNotes = _channelNotes[channel];
+            if (channelNotes == nullptr)
+                return nullptr;
+
+            uint8_t smallestDiff = 255;
+            TSample *candidate = nullptr;
+
+            for (auto &&channelNote : *channelNotes) {
+                uint8_t diff = abs(channelNote.first - noteNumber);
+                if (diff < smallestDiff) {
+                    smallestDiff = diff;
+                    candidate = channelNote.second;
+                }
+            }
+            return candidate;
+        }
+
+    private:
+        std::map<uint8_t, std::map<uint8_t, TSample*>*> _channelNotes;
+        std::function<TSample*(uint8_t channel, uint8_t note)> _createSample;
+};
+
+template<typename TVoice>
+class audiosampler  {
 public:
+    audiosampler( polyphonic<audiovoice<TVoice>> &polyphonic) : 
+        _polysampler(
+            polyphonic,
+            [&] (audiovoice<TVoice> *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn, bool retrigger) {
+                noteEventCallback(voice, sample, noteNumber, noteChannel, velocity, isNoteOn, retrigger);
+            },
+            [&] (uint8_t noteNumber, uint8_t noteChannel) -> audiosample* {
+                return findSample(noteNumber, noteChannel);
+            }
+        )
+    {
+    }
+
+    virtual ~audiosampler() {
+    }
+
+    virtual void voiceOnEvent(TVoice *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) = 0;
+    virtual void voiceOffEvent(TVoice *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel) = 0;
+    virtual void voiceRetriggerEvent(TVoice *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) = 0;
+    virtual audiosample* findSample(uint8_t noteNumber, uint8_t noteChannel) = 0;
+
+    void trigger(uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn) {
+        if (isNoteOn)
+            _polysampler.noteOn(noteNumber, velocity, noteChannel);
+        else
+            _polysampler.noteOff(noteNumber, noteChannel);
+
+    }
+
+ protected:
+    polyphonicsampler<audiovoice<TVoice>, audiosample> _polysampler;
+
+    void noteEventCallback(audiovoice<TVoice> *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn, bool retrigger)    
+    {
+        if (voice == nullptr)
+            return;
+
+        if (isNoteOn) {
+            if (voice->_audiomixer != nullptr) {                        
+                voice->_audiomixer->gain( voice->_mixerChannel, velocity / 255.0);
+            }
+            if (voice->_audiomixer2 != nullptr) {                        
+                voice->_audiomixer2->gain( voice->_mixerChannel2, velocity / 255.0);
+            }
+            if (voice->_audioenvelop != nullptr) {
+                voice->_audioenvelop->noteOn();
+            }
+            if (voice->_audioenvelop2 != nullptr) {
+                voice->_audioenvelop2->noteOn();
+            }
+
+            if (retrigger)
+                voiceRetriggerEvent(voice->_audioplayarray, sample, noteNumber, noteChannel, velocity);
+            else
+                voiceOnEvent(voice->_audioplayarray, sample, noteNumber, noteChannel, velocity);
+        } else {
+            // Note off event
+            if (voice->_audioenvelop != nullptr) {
+                voice->_audioenvelop->noteOff();
+            }
+            
+            if (voice->_audioenvelop2 != nullptr) {
+                voice->_audioenvelop2->noteOff();
+            }
+            voiceOffEvent(voice->_audioplayarray, sample, noteNumber, noteChannel);
+        }
+    }
+    
+};
+
+template <typename TVoice>
+class pitchedaudiosampler : public audiosampler<TVoice> {
+public:
+    pitchedaudiosampler(
+        samplermodel<audiosample> &samplermodel, 
+        polyphonic<audiovoice<TVoice>> polyphony
+    ): 
+        audiosampler<TVoice>(polyphony),
+        _samplermodel(samplermodel) {
+    }
+    
+    virtual ~pitchedaudiosampler() {
+    }
+
+    audiosample* findSample(uint8_t noteNumber, uint8_t noteChannel) override {
+        return _samplermodel.findNearestSampleForNoteAndChannel(noteNumber, noteChannel);
+    }
+
+protected:
+    samplermodel<audiosample> &_samplermodel;
+
     static float calcPitchFactor(uint8_t note, uint8_t rootNoteNumber) {
         float result = powf(2.0, (note-rootNoteNumber) / 12.0);
         return result;
     }
 };
 
-// TAudioPlay should be an object extending AudioStream which will play the audio
-// TSampleType stores information about a sample 
-template<class TAudioPlay, class TSampleType>
-class basesampler {
+template <typename TVoice>
+class unpitchedaudiosampler : public audiosampler<TVoice> {
 public:
-    basesampler() : _polysampler() {
+    unpitchedaudiosampler(
+        samplermodel<audiosample> &samplermodel, 
+        polyphonic<audiovoice<TVoice>> polyphony
+    ): 
+        audiosampler<TVoice>(polyphony),
+        _samplermodel(samplermodel) {
+    }
+    
+    virtual ~unpitchedaudiosampler() {
     }
 
-    void noteEvent(uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn, bool retrigger) {
-        if (isNoteOn && velocity > 0)
-            _polysampler.noteOn(noteNumber, velocity, noteChannel);
-        else 
-            _polysampler.noteOff(noteNumber, noteChannel);
-    }
-
-    void addSample(TSampleType *sample) {
-        _audiosamples.push_back(sample);
-    }
-
-    void removeAllSamples() {
-        for (auto && sample : _audiosamples) {
-            //if (sample->_filename)
-            //    delete [] sample->_filename;
-            delete sample;
-        }
-        _audiosamples.clear();
-    }
-
-    void addVoice(TAudioPlay &audioplayarrayresmp, AudioMixer4 &mixer, uint8_t mixerChannel, AudioEffectEnvelope &envelope, AudioMixer4 &mixer2, uint8_t mixerChannel2, AudioEffectEnvelope &envelope2) {
-        audiovoice<TAudioPlay> *voice = new audiovoice<TAudioPlay>(&audioplayarrayresmp, &envelope, &envelope2, &mixer, &mixer2, mixerChannel, mixerChannel2);
-        addVoice(voice) ;
-    }
-    void addVoice(TAudioPlay &audioplayarrayresmp, AudioMixer4 &mixer, uint8_t mixerChannel, AudioEffectEnvelope &envelope) {
-
-        audiovoice<TAudioPlay> *voice = new audiovoice<TAudioPlay>(&audioplayarrayresmp, &envelope, &mixer, mixerChannel);
-        addVoice(voice) ;
-    }
-    void addVoice(TAudioPlay &audioplayarrayresmp, AudioMixer4 &mixer, uint8_t mixerChannel) {
-
-        audiovoice<TAudioPlay> *voice = new audiovoice<TAudioPlay>(&audioplayarrayresmp, nullptr, &mixer, mixerChannel);
-        addVoice(voice) ;
-    }
-    void addVoice(TAudioPlay &audioplayarrayresmp) {
-        audiovoice<TAudioPlay> *voice = new audiovoice<TAudioPlay>(&audioplayarrayresmp, nullptr, nullptr, 0);
-        addVoice(voice) ;
-    }
-
-    void addVoice(TAudioPlay &audioplayarrayresmp, AudioEffectEnvelope &envelope) {
-        audiovoice<TAudioPlay> *voice = new audiovoice<TAudioPlay>(&audioplayarrayresmp, &envelope);
-        addVoice(voice) ;
-    }
-
-    void addVoice(TAudioPlay &audioplayarrayresmp, AudioEffectEnvelope &envelope1, AudioEffectEnvelope &envelope2) {
-        audiovoice<TAudioPlay> *voice = new audiovoice<TAudioPlay>(&audioplayarrayresmp, &envelope1, &envelope2);
-        addVoice(voice) ;
-    }
-
-    void addVoices(TAudioPlay **voices, uint8_t numOfVoicesToAdd){
-        for (int i = 0; i < numOfVoicesToAdd; i++){
-            addVoice(*voices[i]);
-        }
-    }
-    void addVoices(TAudioPlay *voices, uint8_t numOfVoicesToAdd){
-        for (int i = 0; i < numOfVoicesToAdd; i++){
-            addVoice(voices[i]);
-        }
+    audiosample* findSample(uint8_t noteNumber, uint8_t noteChannel) override {
+        return _samplermodel.getNoteForChannelAndKey(noteNumber, noteChannel);
     }
 
 protected:
-    uint8_t _numVoices = 0;
-    std::vector<audiovoice<TAudioPlay>*> _voices;
-    polyphonicsampler _polysampler;
-    
-    std::vector<TSampleType*> _audiosamples;
-
-    // _polysampler will call noteEventCallback with a voice number
-    //virtual void noteEventCallback(uint8_t voice, uint8_t noteNumber, uint8_t velocity, bool isNoteOn, bool retrigger);
-
-    //virtual TSampleType* findNearestSampleForKey(uint8_t noteNumber);
-    
-    void addVoice(audiovoice<TAudioPlay> *voice){
-        _voices.push_back(voice);
-        _numVoices++;
-        _polysampler.setNumVoices(_numVoices);
-    }
+    samplermodel<audiosample> &_samplermodel;
 };
 
-class PitchedArraySamplePlay {
+class arraysampler : public pitchedaudiosampler<AudioPlayArrayResmp> {
 public:
-    static void play(uint8_t noteNumber, audiovoice<AudioPlayArrayResmp> *voice, audiosample *sample) {
-        float factor = relativepitchcalculator::calcPitchFactor(noteNumber, sample->_noteNumber);
-        voice->_audioplayarray->setPlaybackRate(factor);
-        voice->_audioplayarray->playRaw(sample->_data, sample->_sampleLength, sample->_numChannels);
-    }
-};
-
-class PitchedSdWavSamplePlay {
-public:
-    static void play(uint8_t noteNumber, audiovoice<AudioPlaySdResmp> *voice, audiosample *sample) {
-        float factor = relativepitchcalculator::calcPitchFactor(noteNumber, sample->_noteNumber);
-        voice->_audioplayarray->setPlaybackRate(factor);
-        voice->_audioplayarray->playWav(sample->_filename);
-    }
-};
-
-class PitchedSdRawSamplePlay {
-public:
-    static void play(uint8_t noteNumber, audiovoice<AudioPlaySdResmp> *voice, audiosample *sample) {
-        float factor = relativepitchcalculator::calcPitchFactor(noteNumber, sample->_noteNumber);
-        voice->_audioplayarray->setPlaybackRate(factor);
-        voice->_audioplayarray->playWav(sample->_filename);
-    }
-};
-
-template<class TAudioPlay, class TSamplePlay>
-class audiosampler : public basesampler<TAudioPlay, audiosample> {
-public:
-    using __base = basesampler<TAudioPlay, audiosample>;
-
-    audiosampler() : __base() {
-        __base::_polysampler.setNoteEventCallback( [&] (uint8_t voice, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn, bool retrigger) {
-            noteEventCallback(voice, noteNumber, noteChannel, velocity, isNoteOn, retrigger);
-        });
-    }
-
-    void addSample(uint8_t noteNumber, int16_t *data, uint32_t sampleLength, uint16_t numChannels) {
-        audiosample *newSample = new audiosample(noteNumber, data, sampleLength, numChannels);
-        __base::addSample(newSample);
-    }
-
-    void addSample(uint8_t noteNumber, const char* filename) {
-        audiosample *newSample = new audiosample(noteNumber, filename);
-        __base::addSample(newSample);
-    }
-
- protected:
-    void noteEventCallback(uint8_t voice, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn, bool retrigger)    
+    arraysampler(
+        samplermodel<audiosample> &samplermodel, 
+        polyphonic<audiovoice<AudioPlayArrayResmp>> polyphonic
+    ) : 
+        pitchedaudiosampler<AudioPlayArrayResmp>(samplermodel, polyphonic)
     {
-        uint8_t numVoices = __base::_numVoices;
-        if (voice < numVoices) {
-            audiovoice<TAudioPlay> *audio_voice = __base::_voices[voice];
-            if (isNoteOn) {
-                audiosample *nearestSample = findNearestSampleForKey(noteNumber);
-                if (nearestSample != nullptr) {
-                    
-                    if (audio_voice->_audiomixer != nullptr) {                        
-                        audio_voice->_audiomixer->gain( audio_voice->_mixerChannel, velocity / 255.0);
-                    }
-                    if (audio_voice->_audiomixer2 != nullptr) {                        
-                        audio_voice->_audiomixer2->gain(audio_voice->_mixerChannel, velocity / 255.0);
-                    }
-                    if (audio_voice->_audioenvelop != nullptr) {
-                       audio_voice->_audioenvelop->noteOn();
-                    }
-                    if (audio_voice->_audioenvelop2 != nullptr) {
-                        audio_voice->_audioenvelop2->noteOn();
-                    }
-                    TSamplePlay::play(noteNumber, audio_voice, nearestSample);
-                }
-            } else {
-                // Note off event
-                if (audio_voice->_audioenvelop != nullptr) {
-                    audio_voice->_audioenvelop->noteOff();
-                }
-                
-                if (audio_voice->_audioenvelop2 != nullptr) {
-                    audio_voice->_audioenvelop2->noteOff();
-                }
-
-            }
-        }
     }
 
-    audiosample* findNearestSampleForKey(uint8_t noteNumber) {
-        uint8_t smallestDiff = 255;
-        audiosample *candidate = nullptr;
-        for (auto &&x : __base::_audiosamples) {
-            uint8_t diff = abs(x->_noteNumber - noteNumber);
-            if (diff < smallestDiff) {
-                smallestDiff = diff;
-                candidate = x;
-            }
-        }
-        return candidate;
+    virtual ~arraysampler() {
     }
+
+    void voiceOnEvent(AudioPlayArrayResmp *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override {
+        float factor = calcPitchFactor(noteNumber, sample->_noteNumber);
+        voice->setPlaybackRate(factor);
+        voice->playRaw(sample->_data, sample->_sampleLength, sample->_numChannels);
+    }
+
+    void voiceOffEvent(AudioPlayArrayResmp *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel) override {
+    }
+
+    void voiceRetriggerEvent(AudioPlayArrayResmp *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override{
+    }
+
+protected:
+
 };
 
-class arraysampler : public audiosampler<AudioPlayArrayResmp, PitchedArraySamplePlay> {
-};
-
-class sdwavsampler : public audiosampler<AudioPlaySdResmp, PitchedSdWavSamplePlay> {
-};
-
-class sdrawsampler : public audiosampler<AudioPlaySdResmp, PitchedSdRawSamplePlay> {
-};
-
-class UnpitchedSdWavSamplePlay {
+class sdsampler : public pitchedaudiosampler<AudioPlaySdResmp> {
 public:
-    static void play(uint8_t noteNumber, audiovoice<AudioPlaySdWav> *voice, audiosample *sample) {
-        voice->_audioplayarray->play(sample->_filename);
+    sdsampler(
+        samplermodel<audiosample> &samplermodel, 
+        polyphonic<audiovoice<AudioPlaySdResmp>> polyphonic
+    ) : 
+        pitchedaudiosampler<AudioPlaySdResmp>(samplermodel, polyphonic)
+    {
+    }
+
+    virtual ~sdsampler() {
+    }
+
+    void voiceOnEvent(AudioPlaySdResmp *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override {
+        float factor = calcPitchFactor(noteNumber, sample->_noteNumber);
+        voice->setPlaybackRate(factor);
+        voice->playRaw( sample->_filename, sample->_numChannels);
+    }
+
+    void voiceOffEvent(AudioPlaySdResmp *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel) override {
+    }
+
+    void voiceRetriggerEvent(AudioPlaySdResmp *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override{
     }
 };
 
-class UnpitchedSdRawSamplePlay {
+class unpitchedsdwavsampler : public unpitchedaudiosampler<AudioPlaySdWav> {
 public:
-    static void play(uint8_t noteNumber, audiovoice<AudioPlaySdRaw> *voice, audiosample *sample) {
-        voice->_audioplayarray->play(sample->_filename);
+    unpitchedsdwavsampler (
+        samplermodel<audiosample> &samplermodel, 
+        polyphonic<audiovoice<AudioPlaySdWav>> polyphonic
+    ) : 
+        unpitchedaudiosampler<AudioPlaySdWav>(samplermodel, polyphonic)
+    {
+    }
+
+    virtual ~unpitchedsdwavsampler() {
+    }
+
+    void voiceOnEvent(AudioPlaySdWav *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override {
+        voice->play(sample->_filename);
+    }
+
+    void voiceOffEvent(AudioPlaySdWav *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel) override {
+    }
+
+    void voiceRetriggerEvent(AudioPlaySdWav *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override{
     }
 };
 
-class unpitchedsdwavsampler : public audiosampler<AudioPlaySdWav, UnpitchedSdWavSamplePlay> {
-
-};
-
-class unpitchedsdrawsampler : public audiosampler<AudioPlaySdRaw, UnpitchedSdRawSamplePlay> {
-
-};
-
-class UnpitchedMemorySamplePlay {
+class unpitchedsdrawsampler : public unpitchedaudiosampler<AudioPlaySdRaw> {
 public:
-    static void play(uint8_t noteNumber, audiovoice<AudioPlayMemory> *voice, audiosample *sample) {
-        voice->_audioplayarray->play((const unsigned int*)sample->_data);
+    unpitchedsdrawsampler (
+        samplermodel<audiosample> &samplermodel, 
+        polyphonic<audiovoice<AudioPlaySdRaw>> polyphonic
+    ) : 
+        unpitchedaudiosampler<AudioPlaySdRaw>(samplermodel, polyphonic)
+    {
+    }
+    virtual ~unpitchedsdrawsampler() {
+    }
+
+    void voiceOnEvent(AudioPlaySdRaw *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override {
+        voice->play(sample->_filename);
+    }
+
+    void voiceOffEvent(AudioPlaySdRaw *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel) override {
+    }
+
+    void voiceRetriggerEvent(AudioPlaySdRaw *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override{
     }
 };
 
-class unpitchedmemorysampler : public audiosampler<AudioPlayMemory, UnpitchedMemorySamplePlay> {
+class unpitchedmemorysampler : public unpitchedaudiosampler<AudioPlayMemory> {
+public:
+    unpitchedmemorysampler (
+        samplermodel<audiosample> &samplermodel, 
+        polyphonic<audiovoice<AudioPlayMemory>> polyphonic
+    ) : 
+        unpitchedaudiosampler<AudioPlayMemory>(samplermodel, polyphonic)
+    {
+    }
+    virtual ~unpitchedmemorysampler() {
+    }
 
+    void voiceOnEvent(AudioPlayMemory *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override {
+        voice->play((unsigned int *)sample->_data);// , sample->_sampleLength, sample->_numChannels);
+    }
+
+    void voiceOffEvent(AudioPlayMemory *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel) override {
+    }
+
+    void voiceRetriggerEvent(AudioPlayMemory *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override{
+    }
 };
 
 #endif

@@ -1,61 +1,55 @@
-// Plays a RAW (16-bit signed) PCM audio file at slower or faster rate
-// this example plays a sample stored in an array
-#include <Arduino.h>
+//
+// Created by Nicholas Newdigate on 18/07/2020.
+//
+
+#ifndef TEENSYAUDIO_LAUNCHCTRL_TEST_TEST_POLYPHONIC
+#define TEENSYAUDIO_LAUNCHCTRL_TEST_TEST_POLYPHONIC
+
+#define BOOST_AUTO_TEST_MAIN
+#define BOOST_TEST_MODULE ResamplingReaderTests
+#define BOOST_TEST_DYN_LINK
+
+#include <boost/test/unit_test.hpp>
+#include "polyphonicfixture.h"
 #include <Audio.h>
 #include "playarrayresmp.h"
 #include "sampler.h"
 #include "audiovoicepolyphonic.h"
-#define NUM_VOICES 10
-#define KEY_NOTENUMBER_C1 36
 
-// GUItool: begin automatically generated code
-AudioPlayArrayResmp      voice0; 
-AudioPlayArrayResmp      voice1; 
+BOOST_AUTO_TEST_SUITE(test_polyphonic_sampler)
 
-AudioOutputI2S           i2s1;           //xy=675,518
-AudioConnection          patchCord1(voice0, 0, i2s1, 0);
-AudioConnection          patchCord2(voice1, 0, i2s1, 1);
-AudioControlSGTL5000     sgtl5000_1;     //xy=521,588
-// GUItool: end automatically generatsed code
+    extern unsigned int kick_raw_len;
+    extern unsigned char kick_raw[];
+    #define NUM_VOICES 10
+    #define KEY_NOTENUMBER_C1 36
+    BOOST_FIXTURE_TEST_CASE(basic_polyphonic_sampler_test, PolyphonicFixture) {
+        // GUItool: begin automatically generated code
+        AudioPlayArrayResmp      voice0; 
+        AudioPlayArrayResmp      voice1; 
+        AudioPlayArrayResmp      voice2; 
+        AudioPlayArrayResmp      voice3;
 
-audiovoicepolyphonic<AudioPlayArrayResmp>   _polyphonic;
-samplermodel<audiosample>                   _samplerModel;
-arraysampler                                _sampler(_samplerModel, _polyphonic);
-//AudioPlayArrayResmp
-extern unsigned int kick_raw_len;
-extern unsigned char kick_raw[];
+        audiovoicepolyphonic<AudioPlayArrayResmp>   poly;
+        samplermodel<audiosample>                   _samplerModel;
+        arraysampler                                _sampler(_samplerModel, poly);
 
-void setup() {
-    Serial.begin(9600);
-    AudioMemory(20);
-    sgtl5000_1.enable();
-    sgtl5000_1.volume(0.5f, 0.5f);
-    
-    _polyphonic.addVoice( &voice0 );
-    _polyphonic.addVoice( &voice1 );
-    
-    audiosample *sample = new audiosample(KEY_NOTENUMBER_C1, 0, (int16_t *)kick_raw, kick_raw_len / 2,  1);
-    _samplerModel.allocateNote(0, KEY_NOTENUMBER_C1, sample);
-}
+        poly.addVoice(&voice0);
+        poly.addVoice(&voice1);
+        poly.addVoice(&voice2);
+        poly.addVoice(&voice3);
 
-void loop() {
-    _sampler.trigger(60, 0, 128, true);
-    delay(1000);
-    _sampler.trigger(72, 0, 128, true);
-    delay(1000);
-    _sampler.trigger(60, 0, 128, false);
-    delay(1000);
-    _sampler.trigger(72, 0, 128, false);
-    delay(1000);
-}
+        audiosample *sample = new audiosample(KEY_NOTENUMBER_C1, 0, (int16_t *)kick_raw, kick_raw_len / 2,  1);
+        _samplerModel.allocateNote(0, KEY_NOTENUMBER_C1, sample);
 
-int main() {
-    initialize_mock_arduino();
-    setup();
-    while(true){
-        loop();
+        _sampler.trigger(KEY_NOTENUMBER_C1, 0, 255, true);
+        _sampler.trigger(KEY_NOTENUMBER_C1, 0, 255, false);
+        //BOOST_CHECK_EQUAL(five, nullptr);
+
+        //poly.freeVoice(one);
+        //five = poly.useVoice();
+        //BOOST_CHECK_NE(five, nullptr);
     }
-}
+
 
 unsigned char kick_raw[] = {
   0x99, 0x02, 0xd7, 0x02, 0xfa, 0x02, 0x5f, 0x03, 0xc1, 0x03, 0x2a, 0x04,
@@ -590,3 +584,6 @@ unsigned char kick_raw[] = {
   0xb9, 0x00
 };
 unsigned int kick_raw_len = 6350;
+BOOST_AUTO_TEST_SUITE_END()
+
+#endif //TEENSYAUDIO_LAUNCHCTRL_TEST_TEST_POLYPHONIC

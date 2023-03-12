@@ -6,20 +6,14 @@ set(SOURCE_FILES
 		sampler.cpp
 		stringsampler.cpp
 		polyphonicsampler.cpp
-		playcontroller/sampleplaymidicontroller.cpp
 		loopsampler.cpp)
 
 set(HEADER_FILES
 		sampler.h
 		stringsampler.h
 		polyphonicsampler.h
+		polyphonic.h
 		TeensyPolyphony.h
-		playcontroller/sampleplaymidicontroller.h
-		playcontroller/sampleplaymidicontrollerenums.h
-		playcontroller/abstractdisplay.h
-		playcontroller/serialdisplay.h
-		playcontroller/st7735display.h
-		playcontroller/extracolors.h
 		loopsampler.h
 		loopsamplerenums.h)
 

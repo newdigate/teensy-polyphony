@@ -26,95 +26,107 @@
 #include <cstdint>
 #include <Arduino.h>
 #include <functional>
+#include <map>
+#include "polyphonic.h"
+
 #define MAX_VOICES 16
 
-//typedef void (*noteEventCallback)();
+template <typename TVoice, typename TSample>
+class activenote {
+    public:
+        activenote(TVoice *voice, TSample *sample) : _voice(voice), _sample(sample) {}
+        TVoice *_voice;
+        TSample *_sample;
+};
 
+template <typename TVoice, typename TSample>
 class polyphonicsampler {
 public:
-    polyphonicsampler() : _numVoices(0) {
-        for (int i=0; i < 128; i++)
-          activeNotes[i] = 255;
-    }
+    typedef std::function<void(TVoice *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t noteVelocity, bool isNoteOn, bool retrigger)> NoteEventCallback;
+    typedef std::function<TSample*(uint8_t noteNumber, uint8_t noteChannel)> FindSampleCallback;
 
-    void setNumVoices(uint8_t numVoices) {
-        if (numVoices > _numVoices)
-            for (int i=_numVoices; i < numVoices; i++) {
-              activeVoices[i] = 255;
-              voice_noteOff[i] = 0;
-            }
-        else if (numVoices < _numVoices) {
-            for (int i=_numVoices; i > numVoices; i--) {
-              activeVoices[i] = 255;
-              voice_noteOff[i] = 0;
-            }
-        }
-        _numVoices = numVoices;
+    polyphonicsampler(
+            polyphonic<TVoice> &polyphony, 
+            NoteEventCallback noteEventFunction,
+            FindSampleCallback findSampleFunction) : 
+        _polyphony(polyphony),
+        _activeNotesPerChannel(),
+        _noteEventFunction(noteEventFunction),
+        _findSampleFunction(findSampleFunction) 
+    {
     }
 
     void noteOn(uint8_t noteNumber, uint8_t velocity, uint8_t noteChannel) {
-        int indexOfVoice = 255;
+        TVoice *voice = nullptr;
         bool isretrigger = false;
-        if (activeNotes[noteNumber] == 255) {
+        activenote<TVoice, TSample> *activeNote = nullptr;
+
+        std::map<uint8_t, activenote<TVoice, TSample>*> *activeNotesForChannel = _activeNotesPerChannel[noteChannel];
+        if (activeNotesForChannel != nullptr) {
+            activeNote = (*activeNotesForChannel)[noteNumber];
+        }
+
+        if (activeNote == nullptr) {
             // note is not active, allocate a voice if possible
-            indexOfVoice = getFirstFreeVoice();
-            if (indexOfVoice < _numVoices) {
-                activeVoices[indexOfVoice] = noteNumber;
-                activeNotes[noteNumber] = indexOfVoice;                
+            voice = _polyphony.useVoice(); // getFirstFreeVoice();
+            if (voice != nullptr) {
+                if (activeNotesForChannel == nullptr) {
+                    activeNotesForChannel = new std::map<uint8_t, activenote<TVoice, TSample>*>();
+                    _activeNotesPerChannel[noteChannel] = activeNotesForChannel;
+                }
+                TSample *newSample = _findSampleFunction(noteNumber, noteChannel);
+                activeNote = new activenote<TVoice, TSample>(voice, newSample);
+                (*activeNotesForChannel)[noteNumber] = activeNote;
             } else
             {
                 // note dropped: insufficient polyphony to play this note
-                indexOfVoice = 255;
+                //indexOfVoice = 255;
                 Serial.printf("Note dropped: %i \n", noteNumber);
             }
         } else {
             // note is already active, just re-trigger it...
-            indexOfVoice = activeNotes[noteNumber];
+            voice = activeNote->_voice;
             isretrigger = true;
         }
-        if (indexOfVoice != 255) {            
-            _noteEventFunction(indexOfVoice, noteNumber, noteChannel, velocity, true, isretrigger);
-            voice_noteOn[indexOfVoice] = millis();
-            Serial.printf("Voice %i plays note %i (%i, %i)\n", indexOfVoice, noteNumber, velocity, isretrigger);
+        if (voice != nullptr) {            
+            _noteEventFunction(voice, activeNote->_sample, noteNumber, noteChannel, velocity, true, isretrigger);
         }
     }
 
     void noteOff(uint8_t noteNumber, uint8_t noteChannel) {
-        uint8_t index = activeNotes[noteNumber];
-        if (index == 255) {
-            // note is not active, ignore
+        std::map<uint8_t, activenote<TVoice, TSample>*> *activeNotesForChannel = _activeNotesPerChannel[noteChannel];
+        if (activeNotesForChannel == nullptr)
             return;
-        }
+        
+        activenote<TVoice, TSample>* activeNote = (*activeNotesForChannel)[noteNumber];
+        if (activeNote == nullptr)
+            return;
 
-        _noteEventFunction(index, noteNumber, 0, 0, false, false);
-        activeNotes[noteNumber] = 255;
-        activeVoices[index] = 255; // free the voice
-        voice_noteOff[index] = millis();
-    }
-
-    void setNoteEventCallback (std::function<void(uint8_t voice, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn, bool retrigger)> noteEventFunction) {
-        _noteEventFunction =  noteEventFunction;
+        _noteEventFunction(activeNote->_voice, activeNote->_sample, noteNumber, noteChannel, 0, false, false);
+        (*activeNotesForChannel)[noteNumber] = nullptr;
+        delete activeNote;
     }
 
     void turnOffAllNotesStillPlaying() {
-        Serial.printf("turn off all notes: (%d)\n", _numVoices);
-        for (int i=0; i<_numVoices; i++) {
-            if (activeVoices[i] != 255) {
-                Serial.printf("turn off %d\n",activeVoices[i]);
-                noteOff(activeVoices[i], 0);
+        for (auto && activeNotesForChannel : _activeNotesPerChannel){
+            for (auto && activeNote : (*(activeNotesForChannel.second))) {
+                noteOff(activeNote.first, activeNotesForChannel.first);
             }
         }
     }
 
-private:
-    std::function<void(uint8_t voice, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn, bool retrigger)>  _noteEventFunction;
+protected:
+    NoteEventCallback   _noteEventFunction;
+    FindSampleCallback  _findSampleFunction;
 
-    uint8_t activeNotes[128];
-    uint8_t activeVoices[MAX_VOICES];
-    uint8_t _numVoices;
-    unsigned long voice_noteOff[MAX_VOICES] {0};
-    unsigned long voice_noteOn[MAX_VOICES] {0};
+    polyphonic<TVoice> &_polyphony;
+    
+    std::map<uint8_t, std::map<uint8_t, activenote<TVoice, TSample>*>*> _activeNotesPerChannel;
 
+    //uint8_t _numVoices;
+    //unsigned long voice_noteOff[MAX_VOICES] {0};
+    //unsigned long voice_noteOn[MAX_VOICES] {0};
+    /**
     uint8_t getFirstFreeVoice() {
         unsigned long leastRecentNoteOffEvent = UINT32_MAX;
         uint8_t indexOfVoiceWithLeastRecentNoteOff = 255;
@@ -138,6 +150,7 @@ private:
         }
         return indexOfVoiceWithLeastRecentNoteOff;
     }
+    */
 };
 
 

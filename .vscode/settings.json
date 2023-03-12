@@ -1,6 +1,6 @@
 {
     "boost-test-adapter.logpanel": true,
-    "boost-test-adapter.testExecutable": "cmake-build-debug/test_x86/testteensypolyphony",
+    "boost-test-adapter.testExecutable": "cmake-build-debug/test/tests",
     "cmake.buildDirectory": "${workspaceFolder}/cmake-build-${variant:buildType}",
     "cmake.configureSettings": {
         "CMAKE_BUILD_TYPE": "${buildType}"        

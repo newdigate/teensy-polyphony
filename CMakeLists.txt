@@ -37,7 +37,7 @@ else()
     include_directories(${teensy_audio_x86_stubs_INCLUDE_DIR})
 
     add_subdirectory(src)
+    add_subdirectory(test)
     add_subdirectory(extras/linux/array)
-    #add_subdirectory(extras/linux/sample_launcher)
 
 endif()

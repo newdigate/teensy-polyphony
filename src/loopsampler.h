@@ -52,62 +52,42 @@ public:
     playdirection _playdirection = playdirection::playdirection_begin_forward;
 };
 
-class loopsampler : public basesampler<AudioPlaySdResmp, sdloopaudiosample> {
-public:
-    using __base = basesampler<AudioPlaySdResmp, sdloopaudiosample>;
+class loopsampler {
+    public:
 
-    loopsampler() : __base() {
-        __base::_polysampler.setNoteEventCallback( [&] (uint8_t voice, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn, bool retrigger) {
-            noteEventCallback(voice, noteNumber, noteChannel, velocity, isNoteOn, retrigger);
-        });
-    }
-
-    void addSample(uint8_t noteNumber, const char* filename) {
-        sdloopaudiosample *newSample = new sdloopaudiosample(noteNumber, filename);
-        __base::addSample(newSample);
-    }
-
-    void removeAllSamples() {
-        for (auto && sample : _audiosamples) {
-            //if (sample->_filename)
-            //    delete [] sample->_filename;
-            delete sample;
-        }
-        _audiosamples.clear();
-    }
-
-    sdloopaudiosample* findSampleForKey(uint8_t noteNumber) {
-        sdloopaudiosample *candidate = nullptr;
-        for (auto &&x : __base::_audiosamples) {
-            if (x->_noteNumber == noteNumber) {
-                return x;
-            }
-        }
-        return nullptr;
+    loopsampler(samplermodel<sdloopaudiosample> &samplermodel, polyphonic<audiovoice<AudioPlaySdResmp>> &polyphony) : 
+            _samplermodel(samplermodel),
+            _polyphonicsampler(
+                polyphony,
+                [&] (audiovoice<AudioPlaySdResmp> *voice, sdloopaudiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t noteVelocity, bool isNoteOn, bool retrigger) {
+                    noteEventCallback(voice, sample, noteNumber, noteChannel, noteVelocity, isNoteOn, retrigger);
+                },
+                [&] (uint8_t noteNumber, uint8_t noteChannel) -> sdloopaudiosample* { 
+                    return _samplermodel.getNoteForChannelAndKey(noteChannel, noteNumber);
+                } ) 
+    {
     }
 
  protected:
-    void noteEventCallback(uint8_t voice, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn, bool retrigger)    
-    {
-        uint8_t numVoices = __base::_numVoices;
-        if (voice < numVoices) {
-            audiovoice<AudioPlaySdResmp> *audio_voice = __base::_voices[voice];
-            sdloopaudiosample *sample = findSampleForKey(noteNumber);
-            if (sample != nullptr) {
-                if (isNoteOn) {                
-                    if (audio_voice->_audiomixer != nullptr) {                        
-                        audio_voice->_audiomixer->gain( audio_voice->_mixerChannel, velocity / 255.0);
-                    }
-                    if (audio_voice->_audiomixer2 != nullptr) {                        
-                        audio_voice->_audiomixer2->gain(audio_voice->_mixerChannel, velocity / 255.0);
-                    }
+    samplermodel<sdloopaudiosample> &_samplermodel;
+    polyphonicsampler<audiovoice<AudioPlaySdResmp>, sdloopaudiosample> _polyphonicsampler;
 
-                    play(noteNumber, audio_voice, sample);
-                } else 
-                {
-//                    if (sample->_triggertype == triggertype_play_while_notedown)
-                    audio_voice->_audioplayarray->stop();
+    void noteEventCallback(audiovoice<AudioPlaySdResmp>* voice, sdloopaudiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn, bool retrigger)    
+    {
+        if (voice != nullptr && sample != nullptr) {
+            if (isNoteOn) {                
+                if (voice->_audiomixer != nullptr) {                        
+                    voice->_audiomixer->gain( voice->_mixerChannel, velocity / 255.0);
                 }
+                if (voice->_audiomixer2 != nullptr) {                        
+                    voice->_audiomixer2->gain(voice->_mixerChannel2, velocity / 255.0);
+                }
+
+                play(noteNumber, voice, sample);
+            } else 
+            {
+//                    if (sample->_triggertype == triggertype_play_while_notedown)
+                voice->_audioplayarray->stop();
             }
         }
     }
