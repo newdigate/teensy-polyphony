@@ -142,6 +142,11 @@ public:
         _mixerChannel(mixerChannel),
         _mixerChannel2(mixerChannel2) {
     }
+    
+    audiovoice(const audiovoice&) = delete;
+    virtual ~audiovoice() {
+    }
+
     TAudioPlay *_audioplayarray = nullptr;
 
     AudioEffectEnvelope *_audioenvelop = nullptr;
@@ -164,6 +169,8 @@ class samplermodel {
             _channelNotes()        
         {
         }
+        
+        samplermodel(const samplermodel&) = delete;
 
         virtual ~samplermodel() {
             for (auto && channelNoteMap : _channelNotes) {
@@ -224,29 +231,31 @@ class samplermodel {
         std::function<TSample*(uint8_t channel, uint8_t note)> _createSample;
 };
 
-template<typename TVoice>
+template<typename TVoice, typename TSample>
 class audiosampler  {
 public:
     audiosampler( polyphonic<audiovoice<TVoice>> &polyphonic) : 
         _polysampler(
             polyphonic,
-            [&] (audiovoice<TVoice> *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn, bool retrigger) {
+            [&] (audiovoice<TVoice> *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn, bool retrigger) {
                 noteEventCallback(voice, sample, noteNumber, noteChannel, velocity, isNoteOn, retrigger);
             },
-            [&] (uint8_t noteNumber, uint8_t noteChannel) -> audiosample* {
+            [&] (uint8_t noteNumber, uint8_t noteChannel) -> TSample* {
                 return findSample(noteNumber, noteChannel);
             }
         )
     {
     }
 
+    audiosampler(const audiosampler&) = delete;
+
     virtual ~audiosampler() {
     }
 
-    virtual void voiceOnEvent(TVoice *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) = 0;
-    virtual void voiceOffEvent(TVoice *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel) = 0;
-    virtual void voiceRetriggerEvent(TVoice *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) = 0;
-    virtual audiosample* findSample(uint8_t noteNumber, uint8_t noteChannel) = 0;
+    virtual void voiceOnEvent(TVoice *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) = 0;
+    virtual void voiceOffEvent(TVoice *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel) = 0;
+    virtual void voiceRetriggerEvent(TVoice *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) = 0;
+    virtual TSample* findSample(uint8_t noteNumber, uint8_t noteChannel) = 0;
 
     void trigger(uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn) {
         if (isNoteOn)
@@ -257,9 +266,9 @@ public:
     }
 
  protected:
-    polyphonicsampler<audiovoice<TVoice>, audiosample> _polysampler;
+    polyphonicsampler<audiovoice<TVoice>, TSample> _polysampler;
 
-    void noteEventCallback(audiovoice<TVoice> *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn, bool retrigger)    
+    void noteEventCallback(audiovoice<TVoice> *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn, bool retrigger)    
     {
         if (voice == nullptr)
             return;
@@ -298,16 +307,18 @@ public:
 };
 
 template <typename TVoice>
-class pitchedaudiosampler : public audiosampler<TVoice> {
+class pitchedaudiosampler : public audiosampler<TVoice, audiosample> {
 public:
     pitchedaudiosampler(
         samplermodel<audiosample> &samplermodel, 
-        polyphonic<audiovoice<TVoice>> polyphony
+        polyphonic<audiovoice<TVoice>> &polyphony
     ): 
-        audiosampler<TVoice>(polyphony),
+        audiosampler<TVoice, audiosample>(polyphony),
         _samplermodel(samplermodel) {
     }
     
+    pitchedaudiosampler(const pitchedaudiosampler&) = delete;
+
     virtual ~pitchedaudiosampler() {
     }
 
@@ -325,16 +336,18 @@ protected:
 };
 
 template <typename TVoice>
-class unpitchedaudiosampler : public audiosampler<TVoice> {
+class unpitchedaudiosampler : public audiosampler<TVoice, audiosample> {
 public:
     unpitchedaudiosampler(
         samplermodel<audiosample> &samplermodel, 
-        polyphonic<audiovoice<TVoice>> polyphony
+        polyphonic<audiovoice<TVoice>> &polyphony
     ): 
-        audiosampler<TVoice>(polyphony),
+        audiosampler<TVoice, audiosample>(polyphony),
         _samplermodel(samplermodel) {
     }
     
+    unpitchedaudiosampler(const unpitchedaudiosampler&) = delete;
+
     virtual ~unpitchedaudiosampler() {
     }
 
@@ -350,11 +363,13 @@ class arraysampler : public pitchedaudiosampler<AudioPlayArrayResmp> {
 public:
     arraysampler(
         samplermodel<audiosample> &samplermodel, 
-        polyphonic<audiovoice<AudioPlayArrayResmp>> polyphonic
+        polyphonic<audiovoice<AudioPlayArrayResmp>> &polyphonic
     ) : 
         pitchedaudiosampler<AudioPlayArrayResmp>(samplermodel, polyphonic)
     {
     }
+
+    arraysampler(const arraysampler&) = delete;
 
     virtual ~arraysampler() {
     }
@@ -379,11 +394,13 @@ class sdsampler : public pitchedaudiosampler<AudioPlaySdResmp> {
 public:
     sdsampler(
         samplermodel<audiosample> &samplermodel, 
-        polyphonic<audiovoice<AudioPlaySdResmp>> polyphonic
+        polyphonic<audiovoice<AudioPlaySdResmp>> &polyphonic
     ) : 
         pitchedaudiosampler<AudioPlaySdResmp>(samplermodel, polyphonic)
     {
     }
+
+    sdsampler(const sdsampler&) = delete;
 
     virtual ~sdsampler() {
     }
@@ -405,11 +422,13 @@ class unpitchedsdwavsampler : public unpitchedaudiosampler<AudioPlaySdWav> {
 public:
     unpitchedsdwavsampler (
         samplermodel<audiosample> &samplermodel, 
-        polyphonic<audiovoice<AudioPlaySdWav>> polyphonic
+        polyphonic<audiovoice<AudioPlaySdWav>> &polyphonic
     ) : 
         unpitchedaudiosampler<AudioPlaySdWav>(samplermodel, polyphonic)
     {
     }
+
+    unpitchedsdwavsampler(const unpitchedsdwavsampler&) = delete;
 
     virtual ~unpitchedsdwavsampler() {
     }
@@ -429,11 +448,14 @@ class unpitchedsdrawsampler : public unpitchedaudiosampler<AudioPlaySdRaw> {
 public:
     unpitchedsdrawsampler (
         samplermodel<audiosample> &samplermodel, 
-        polyphonic<audiovoice<AudioPlaySdRaw>> polyphonic
+        polyphonic<audiovoice<AudioPlaySdRaw>> &polyphonic
     ) : 
         unpitchedaudiosampler<AudioPlaySdRaw>(samplermodel, polyphonic)
     {
     }
+
+    unpitchedsdrawsampler(const unpitchedsdrawsampler&) = delete;
+
     virtual ~unpitchedsdrawsampler() {
     }
 
@@ -452,11 +474,14 @@ class unpitchedmemorysampler : public unpitchedaudiosampler<AudioPlayMemory> {
 public:
     unpitchedmemorysampler (
         samplermodel<audiosample> &samplermodel, 
-        polyphonic<audiovoice<AudioPlayMemory>> polyphonic
+        polyphonic<audiovoice<AudioPlayMemory>> &polyphonic
     ) : 
         unpitchedaudiosampler<AudioPlayMemory>(samplermodel, polyphonic)
     {
     }
+
+    unpitchedmemorysampler(const unpitchedmemorysampler&) = delete;
+
     virtual ~unpitchedmemorysampler() {
     }
 

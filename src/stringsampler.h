@@ -65,6 +65,10 @@ public:
     {
     }
 
+    stringsampler(const stringsampler&) = delete;
+    virtual ~stringsampler() {
+    }
+
     void noteEvent(stringvoice *voice, stringnote *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn, bool retrigger) {
         if (isNoteOn) {
             voice->_strings->noteOn(sample->_freq, velocity/255.0);

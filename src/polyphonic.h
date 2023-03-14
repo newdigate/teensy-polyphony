@@ -32,6 +32,8 @@ class voice_usage {
 public:
     voice_usage(TVoice &voice) : _voice(voice), _isActive(false) {
     }
+    voice_usage(const voice_usage&) = delete;
+
     virtual ~voice_usage() {
     }
     TVoice &_voice;
@@ -43,6 +45,7 @@ class polyphonic {
 public:
     polyphonic() : _voices(0) {
     }
+    polyphonic(const polyphonic&) = delete;
 
     virtual ~polyphonic() {
         for (auto v : _voices) {

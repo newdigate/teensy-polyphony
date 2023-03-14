@@ -34,6 +34,8 @@ public:
     audiovoicepolyphonic() : polyphonic<audiovoice<TVoice>>() {
     }
 
+    audiovoicepolyphonic(const audiovoicepolyphonic&) = delete;
+
     virtual ~audiovoicepolyphonic() {
     }
 

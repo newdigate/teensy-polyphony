@@ -68,6 +68,12 @@ class loopsampler {
     {
     }
 
+    loopsampler(const loopsampler&) = delete;
+    virtual ~loopsampler() {
+        
+    }
+
+
  protected:
     samplermodel<sdloopaudiosample> &_samplermodel;
     polyphonicsampler<audiovoice<AudioPlaySdResmp>, sdloopaudiosample> _polyphonicsampler;

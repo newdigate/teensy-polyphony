@@ -9,6 +9,7 @@ set(SOURCE_FILES
 		loopsampler.cpp)
 
 set(HEADER_FILES
+		audiovoicepolyphonic.h
 		sampler.h
 		stringsampler.h
 		polyphonicsampler.h

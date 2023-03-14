@@ -55,6 +55,7 @@ public:
         _findSampleFunction(findSampleFunction) 
     {
     }
+    polyphonicsampler(const polyphonicsampler&) = delete;
 
     void noteOn(uint8_t noteNumber, uint8_t velocity, uint8_t noteChannel) {
         TVoice *voice = nullptr;
@@ -103,7 +104,8 @@ public:
             return;
 
         _noteEventFunction(activeNote->_voice, activeNote->_sample, noteNumber, noteChannel, 0, false, false);
-        (*activeNotesForChannel)[noteNumber] = nullptr;
+        //(*activeNotesForChannel)[noteNumber] = nullptr;
+        activeNotesForChannel->erase(noteNumber);
         delete activeNote;
     }
 
