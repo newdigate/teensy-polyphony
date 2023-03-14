@@ -28,8 +28,7 @@
 #include <functional>
 #include <map>
 #include "polyphonic.h"
-
-#define MAX_VOICES 16
+#include "loopsamplerenums.h"
 
 template <typename TVoice, typename TSample>
 class activenote {
@@ -44,6 +43,37 @@ class polyphonicsampler {
 public:
     typedef std::function<void(TVoice *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t noteVelocity, bool isNoteOn, bool retrigger)> NoteEventCallback;
     typedef std::function<TSample*(uint8_t noteNumber, uint8_t noteChannel)> FindSampleCallback;
+    typedef std::function<triggertype(uint8_t noteNumber, uint8_t noteChannel)> FindTriggerTypeCallback;
+
+    polyphonicsampler(
+            polyphonic<TVoice> &polyphony, 
+            NoteEventCallback noteEventFunction,
+            FindSampleCallback findSampleFunction,
+            FindTriggerTypeCallback findTriggerTypeFunction) : 
+        _polyphony(polyphony),
+        _activeNotesPerChannel(),
+        _noteEventFunction(noteEventFunction),
+        _findSampleFunction(findSampleFunction),
+        _findTriggerTypeFunction(findTriggerTypeFunction),
+        _useStaticTriggerType(false),
+        _staticTriggerType(triggertype::triggertype_play_while_notedown)
+    {
+    }
+
+    polyphonicsampler(
+            polyphonic<TVoice> &polyphony, 
+            NoteEventCallback noteEventFunction,
+            FindSampleCallback findSampleFunction,
+            triggertype trigger) : 
+        _polyphony(polyphony),
+        _activeNotesPerChannel(),
+        _noteEventFunction(noteEventFunction),
+        _findSampleFunction(findSampleFunction),
+        _findTriggerTypeFunction([] (uint8_t noteNumber, uint8_t noteChannel) -> triggertype { return triggertype::triggertype_play_while_notedown; }),
+        _useStaticTriggerType(true),
+        _staticTriggerType(trigger)
+    {
+    }
 
     polyphonicsampler(
             polyphonic<TVoice> &polyphony, 
@@ -52,10 +82,60 @@ public:
         _polyphony(polyphony),
         _activeNotesPerChannel(),
         _noteEventFunction(noteEventFunction),
-        _findSampleFunction(findSampleFunction) 
+        _findSampleFunction(nullptr),
+        _useStaticTriggerType(true),
+        _staticTriggerType(triggertype::triggertype_play_while_notedown)
     {
     }
+
     polyphonicsampler(const polyphonicsampler&) = delete;
+
+    void preprocessNoteOn(uint8_t noteNumber, uint8_t velocity, uint8_t noteChannel) {
+        triggertype trigger = _staticTriggerType;
+        if (!_useStaticTriggerType) {
+            trigger = _findTriggerTypeFunction(noteNumber, noteChannel);
+        }
+
+        switch (trigger) {
+            case triggertype_play_until_end :
+            case triggertype_play_while_notedown : 
+                noteOn(noteNumber, velocity, noteChannel); 
+                break;
+
+            case triggertype_play_until_subsequent_notedown: {
+                if (isNoteActive(noteNumber, noteChannel)) {
+                    noteOff(noteNumber, noteChannel);  
+                } else {
+                    noteOn(noteNumber, velocity, noteChannel);
+                }
+            }
+            break;
+
+            default: break;
+        }
+ 
+    }
+
+    void preprocessNoteOff(uint8_t noteNumber, uint8_t noteChannel) {
+        triggertype trigger = _staticTriggerType;
+        if (!_useStaticTriggerType) {
+            trigger = _findTriggerTypeFunction(noteNumber, noteChannel);
+        }
+
+        switch (trigger) {
+            case triggertype_play_until_end :
+            case triggertype_play_until_subsequent_notedown :
+            break;
+            
+            case triggertype_play_while_notedown :
+            {   
+                noteOff(noteNumber, noteChannel);  
+                break;
+            }
+
+            default: break;
+        }   
+    }
 
     void noteOn(uint8_t noteNumber, uint8_t velocity, uint8_t noteChannel) {
         TVoice *voice = nullptr;
@@ -120,39 +200,27 @@ public:
 protected:
     NoteEventCallback   _noteEventFunction;
     FindSampleCallback  _findSampleFunction;
-
-    polyphonic<TVoice> &_polyphony;
+    polyphonic<TVoice>      &_polyphony;
     
     std::map<uint8_t, std::map<uint8_t, activenote<TVoice, TSample>*>*> _activeNotesPerChannel;
 
-    //uint8_t _numVoices;
-    //unsigned long voice_noteOff[MAX_VOICES] {0};
-    //unsigned long voice_noteOn[MAX_VOICES] {0};
-    /**
-    uint8_t getFirstFreeVoice() {
-        unsigned long leastRecentNoteOffEvent = UINT32_MAX;
-        uint8_t indexOfVoiceWithLeastRecentNoteOff = 255;
-        for (int i=0; i < _numVoices; i++) {
-            if (activeVoices[i] == 255) {
-                if (voice_noteOff[i] < leastRecentNoteOffEvent) {
-                    leastRecentNoteOffEvent = voice_noteOff[i];
-                    indexOfVoiceWithLeastRecentNoteOff = i;
-                }
-            }
+    FindTriggerTypeCallback _findTriggerTypeFunction;
+    bool _useStaticTriggerType;
+    triggertype _staticTriggerType = triggertype_play_while_notedown;
+
+    bool isNoteActive(uint8_t noteNumber, uint8_t noteChannel) {
+        activenote<TVoice, TSample> *activeNote = nullptr;
+
+        std::map<uint8_t, activenote<TVoice, TSample>*> *activeNotesForChannel = _activeNotesPerChannel[noteChannel];
+        if (activeNotesForChannel != nullptr) {
+            activeNote = (*activeNotesForChannel)[noteNumber];
         }
-        if (indexOfVoiceWithLeastRecentNoteOff == 0xff) {
-            // all voices are in use... return the voice with least recent note off
-            unsigned long leastRecentNoteOnEvent = UINT32_MAX;
-            for (int i=0; i < _numVoices; i++) {
-                if (voice_noteOn[i] < leastRecentNoteOffEvent) {
-                    leastRecentNoteOffEvent = voice_noteOn[i];
-                    indexOfVoiceWithLeastRecentNoteOff = i;
-                }
-            }
-        }
-        return indexOfVoiceWithLeastRecentNoteOff;
+
+        if (activeNote == nullptr)
+            return false;
+        
+        return true;
     }
-    */
 };
 
 

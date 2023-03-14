@@ -29,6 +29,7 @@
 #include <vector>
 #include "effect_envelope.h"
 #include "mixer.h"
+#include "loopsamplerenums.h"
 //template <unsigned MAX_NUM_POLYPHONY>
 class audiosample {
 public:
@@ -180,6 +181,10 @@ class samplermodel {
             }
         }
 
+        virtual triggertype getTriggerTypeForChannelAndKey(uint8_t channel, uint8_t note) {
+            return triggertype::triggertype_play_while_notedown;
+        }
+
         TSample* getNoteForChannelAndKey(uint8_t channel, uint8_t note) {
             if (_channelNotes.find(channel) == _channelNotes.end() ) {
                 return nullptr;
@@ -228,13 +233,15 @@ class samplermodel {
 
     private:
         std::map<uint8_t, std::map<uint8_t, TSample*>*> _channelNotes;
-        std::function<TSample*(uint8_t channel, uint8_t note)> _createSample;
 };
 
 template<typename TVoice, typename TSample>
 class audiosampler  {
 public:
-    audiosampler( polyphonic<audiovoice<TVoice>> &polyphonic) : 
+    audiosampler( 
+        polyphonic<audiovoice<TVoice>> &polyphonic, 
+        std::function<triggertype(uint8_t noteNumber, uint8_t noteChannel)> fnGetTriggerType
+    ) : 
         _polysampler(
             polyphonic,
             [&] (audiovoice<TVoice> *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn, bool retrigger) {
@@ -242,7 +249,25 @@ public:
             },
             [&] (uint8_t noteNumber, uint8_t noteChannel) -> TSample* {
                 return findSample(noteNumber, noteChannel);
-            }
+            },
+            fnGetTriggerType
+        )
+    {
+    }
+
+    audiosampler( 
+        polyphonic<audiovoice<TVoice>> &polyphonic, 
+        triggertype staticTriggerType
+    ) : 
+        _polysampler(
+            polyphonic,
+            [&] (audiovoice<TVoice> *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn, bool retrigger) {
+                noteEventCallback(voice, sample, noteNumber, noteChannel, velocity, isNoteOn, retrigger);
+            },
+            [&] (uint8_t noteNumber, uint8_t noteChannel) -> TSample* {
+                return findSample(noteNumber, noteChannel);
+            },
+            staticTriggerType
         )
     {
     }
@@ -259,10 +284,9 @@ public:
 
     void trigger(uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn) {
         if (isNoteOn)
-            _polysampler.noteOn(noteNumber, velocity, noteChannel);
+            _polysampler.preprocessNoteOn(noteNumber, velocity, noteChannel);
         else
-            _polysampler.noteOff(noteNumber, noteChannel);
-
+            _polysampler.preprocessNoteOff(noteNumber, noteChannel);
     }
 
  protected:
@@ -313,8 +337,9 @@ public:
         samplermodel<audiosample> &samplermodel, 
         polyphonic<audiovoice<TVoice>> &polyphony
     ): 
-        audiosampler<TVoice, audiosample>(polyphony),
-        _samplermodel(samplermodel) {
+        audiosampler<TVoice, audiosample>( polyphony, triggertype::triggertype_play_while_notedown ),
+        _samplermodel(samplermodel) 
+    {
     }
     
     pitchedaudiosampler(const pitchedaudiosampler&) = delete;
@@ -342,7 +367,7 @@ public:
         samplermodel<audiosample> &samplermodel, 
         polyphonic<audiovoice<TVoice>> &polyphony
     ): 
-        audiosampler<TVoice, audiosample>(polyphony),
+        audiosampler<TVoice, audiosample>(polyphony, triggertype::triggertype_play_while_notedown),
         _samplermodel(samplermodel) {
     }
     
