@@ -94,26 +94,8 @@ public:
         triggertype trigger = _staticTriggerType;
         if (!_useStaticTriggerType) {
             trigger = _findTriggerTypeFunction(noteNumber, noteChannel);
-        }
-
-        switch (trigger) {
-            case triggertype_play_until_end :
-            case triggertype_play_while_notedown : 
-                noteOn(noteNumber, velocity, noteChannel); 
-                break;
-
-            case triggertype_play_until_subsequent_notedown: {
-                if (isNoteActive(noteNumber, noteChannel)) {
-                    noteOff(noteNumber, noteChannel);  
-                } else {
-                    noteOn(noteNumber, velocity, noteChannel);
-                }
-            }
-            break;
-
-            default: break;
-        }
- 
+        } 
+        noteDown(noteNumber, velocity, noteChannel, trigger);
     }
 
     void preprocessNoteOff(uint8_t noteNumber, uint8_t noteChannel) {
@@ -121,7 +103,70 @@ public:
         if (!_useStaticTriggerType) {
             trigger = _findTriggerTypeFunction(noteNumber, noteChannel);
         }
+        noteUp(noteNumber, noteChannel, trigger);
+    }
 
+    void noteDown(uint8_t noteNumber, uint8_t velocity, uint8_t noteChannel, triggertype trigger) {
+        switch (trigger) {
+            case triggertype_play_until_end : {
+                TVoice* voice = getVoice(noteNumber, noteChannel);
+                if (voice != nullptr) {    
+                    TSample *sample = _findSampleFunction(noteNumber, noteChannel);
+                    activenote<TVoice, TSample> *activeNote = allocateActiveNote(voice, sample, noteNumber, noteChannel);
+                    noteOn(noteNumber, velocity, noteChannel, voice, sample);     
+                } 
+            }           
+            break;
+
+            case triggertype_play_while_notedown : {
+                TVoice *voice = nullptr;
+                TSample *sample = nullptr;
+                bool isretrigger = false;
+                activenote<TVoice, TSample> *activeNote = nullptr;
+
+                std::map<uint8_t, activenote<TVoice, TSample>*> *activeNotesForChannel = _activeNotesPerChannel[noteChannel];
+                if (activeNotesForChannel != nullptr) {
+                    activeNote = (*activeNotesForChannel)[noteNumber];
+                }
+
+                if (activeNote == nullptr) {
+                    // note is not active, allocate a voice if possible
+                    voice = getVoice(noteNumber, noteChannel);
+                    if (voice != nullptr) {
+                        TSample *sample = _findSampleFunction(noteNumber, noteChannel);
+                        activenote<TVoice, TSample> *activeNote = allocateActiveNote(voice, sample, noteNumber, noteChannel);
+                    }
+                } else {
+                    // note is already active, just re-trigger it...
+                    voice = activeNote->_voice;
+                    sample = activeNote->_sample;
+                    isretrigger = true;
+                }
+
+                noteOn(noteNumber, velocity, noteChannel, voice, sample, isretrigger); 
+            }
+            break;
+
+            case triggertype_play_until_subsequent_notedown: {
+                activenote<TVoice, TSample>* activenote = isNoteActive(noteNumber, noteChannel);
+                if (activenote) {
+                    noteOff(noteNumber, noteChannel, activenote);  
+                } else {
+                    TVoice *voice = getVoice(noteNumber, noteChannel);
+                    if (voice != nullptr) {
+                        TSample *sample = _findSampleFunction(noteNumber, noteChannel);
+                        activenote = allocateActiveNote(voice, sample, noteNumber, noteChannel);
+                        noteOn(noteNumber, velocity, noteChannel, voice, sample);
+                    }
+                }
+            }
+            break;
+
+            default: break;
+        }
+    }
+
+    void noteUp(uint8_t noteNumber, uint8_t noteChannel, triggertype trigger) {
         switch (trigger) {
             case triggertype_play_until_end :
             case triggertype_play_until_subsequent_notedown :
@@ -129,48 +174,17 @@ public:
             
             case triggertype_play_while_notedown :
             {   
-                noteOff(noteNumber, noteChannel);  
+                 
                 break;
             }
 
             default: break;
-        }   
+        }
     }
 
-    void noteOn(uint8_t noteNumber, uint8_t velocity, uint8_t noteChannel) {
-        TVoice *voice = nullptr;
-        bool isretrigger = false;
-        activenote<TVoice, TSample> *activeNote = nullptr;
-
-        std::map<uint8_t, activenote<TVoice, TSample>*> *activeNotesForChannel = _activeNotesPerChannel[noteChannel];
-        if (activeNotesForChannel != nullptr) {
-            activeNote = (*activeNotesForChannel)[noteNumber];
-        }
-
-        if (activeNote == nullptr) {
-            // note is not active, allocate a voice if possible
-            voice = _polyphony.useVoice(); // getFirstFreeVoice();
-            if (voice != nullptr) {
-                if (activeNotesForChannel == nullptr) {
-                    activeNotesForChannel = new std::map<uint8_t, activenote<TVoice, TSample>*>();
-                    _activeNotesPerChannel[noteChannel] = activeNotesForChannel;
-                }
-                TSample *newSample = _findSampleFunction(noteNumber, noteChannel);
-                activeNote = new activenote<TVoice, TSample>(voice, newSample);
-                (*activeNotesForChannel)[noteNumber] = activeNote;
-            } else
-            {
-                // note dropped: insufficient polyphony to play this note
-                //indexOfVoice = 255;
-                Serial.printf("Note dropped: %i \n", noteNumber);
-            }
-        } else {
-            // note is already active, just re-trigger it...
-            voice = activeNote->_voice;
-            isretrigger = true;
-        }
+    void noteOn(uint8_t noteNumber, uint8_t velocity, uint8_t noteChannel, TVoice* voice, TSample *sample, bool isretrigger = false) {
         if (voice != nullptr) {            
-            _noteEventFunction(voice, activeNote->_sample, noteNumber, noteChannel, velocity, true, isretrigger);
+            _noteEventFunction(voice, sample, noteNumber, noteChannel, velocity, true, isretrigger);
         }
     }
 
@@ -183,9 +197,17 @@ public:
         if (activeNote == nullptr)
             return;
 
+        noteOff(noteNumber, noteChannel, activeNote);
+    }
+
+    void noteOff(uint8_t noteNumber, uint8_t noteChannel, activenote<TVoice, TSample>* activeNote) {
+        if (activeNote == nullptr)
+            return;
+
         _noteEventFunction(activeNote->_voice, activeNote->_sample, noteNumber, noteChannel, 0, false, false);
-        //(*activeNotesForChannel)[noteNumber] = nullptr;
-        activeNotesForChannel->erase(noteNumber);
+        std::map<uint8_t, activenote<TVoice, TSample>*> *activeNotesForChannel = _activeNotesPerChannel[noteChannel];
+        if (activeNotesForChannel != nullptr)
+            activeNotesForChannel->erase(noteNumber);
         delete activeNote;
     }
 
@@ -208,18 +230,39 @@ protected:
     bool _useStaticTriggerType;
     triggertype _staticTriggerType = triggertype_play_while_notedown;
 
-    bool isNoteActive(uint8_t noteNumber, uint8_t noteChannel) {
+    activenote<TVoice, TSample>* isNoteActive(uint8_t noteNumber, uint8_t noteChannel) {
         activenote<TVoice, TSample> *activeNote = nullptr;
 
         std::map<uint8_t, activenote<TVoice, TSample>*> *activeNotesForChannel = _activeNotesPerChannel[noteChannel];
         if (activeNotesForChannel != nullptr) {
             activeNote = (*activeNotesForChannel)[noteNumber];
         }
+        return activeNote;
+    }
+    
+    TVoice* getVoice(uint8_t noteNumber, uint8_t noteChannel ) {
+        TVoice* voice = _polyphony.useVoice(); // getFirstFreeVoice();
+        if (voice != nullptr) {
+            std::map<uint8_t, activenote<TVoice, TSample>*> *activeNotesForChannel = _activeNotesPerChannel[noteChannel];
+            if (activeNotesForChannel == nullptr) {
+                activeNotesForChannel = new std::map<uint8_t, activenote<TVoice, TSample>*>();
+                _activeNotesPerChannel[noteChannel] = activeNotesForChannel;
+            }
 
-        if (activeNote == nullptr)
-            return false;
-        
-        return true;
+        } else
+        {
+            // note dropped: insufficient polyphony to play this note
+            //indexOfVoice = 255;
+            Serial.printf("Note dropped: %i \n", noteNumber);
+        }
+        return voice;
+    }
+
+    activenote<TVoice, TSample>* allocateActiveNote(TVoice *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel) {
+        std::map<uint8_t, activenote<TVoice, TSample>*> *activeNotesForChannel = _activeNotesPerChannel[noteChannel];
+        activenote<TVoice, TSample> *activeNote = new activenote<TVoice, TSample>(voice, sample);
+        (*activeNotesForChannel)[noteNumber] = activeNote;
+        return activeNote;
     }
 };
 
