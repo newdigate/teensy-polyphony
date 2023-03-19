@@ -251,7 +251,9 @@ public:
                 return findSample(noteNumber, noteChannel);
             },
             fnGetTriggerType
-        )
+        ),
+        _polyphonic(polyphonic),
+        _voicesWaitingToComplete()
     {
     }
 
@@ -268,7 +270,9 @@ public:
                 return findSample(noteNumber, noteChannel);
             },
             staticTriggerType
-        )
+        ),
+        _polyphonic(polyphonic),
+        _voicesWaitingToComplete()
     {
     }
 
@@ -289,8 +293,18 @@ public:
             _polysampler.preprocessNoteOff(noteNumber, noteChannel);
     }
 
+    void update() {
+        for (auto && voice : _voicesWaitingToComplete) {
+            if (voice->isPlaying() && !voice->_audioenvelop->isActive()) {
+                voice->_audioplayarray->stop();
+            }
+        }
+    }
+
  protected:
     polyphonicsampler<audiovoice<TVoice>, TSample> _polysampler;
+    polyphonic<audiovoice<TVoice>> &_polyphonic;
+    std::vector<audiovoice<TVoice>*> _voicesWaitingToComplete;
 
     void noteEventCallback(audiovoice<TVoice> *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn, bool retrigger)    
     {
@@ -325,6 +339,7 @@ public:
                 voice->_audioenvelop2->noteOff();
             }
             voiceOffEvent(voice->_audioplayarray, sample, noteNumber, noteChannel);
+            _voicesWaitingToComplete.push_back(voice);
         }
     }
     
