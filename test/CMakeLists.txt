@@ -23,8 +23,10 @@ include_directories(../src)
 add_executable(tests
 #        ../src/polyphonic.cpp
 #        ../src/sampleplaymidicontroller.cpp
+        output_test.cpp
         test_polyphonic.cpp
-        test_polyphonic_sampler.cpp)
+        test_polyphonic_sampler.cpp
+        test_mysampler.cpp)
 
 target_link_libraries(tests ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})
 target_link_libraries(tests ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})

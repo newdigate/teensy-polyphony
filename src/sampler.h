@@ -105,16 +105,22 @@ public:
     audiovoice(TAudioPlay *audioplayarray, AudioEffectEnvelope *audioenvelop, AudioMixer4 *audiomixer, uint8_t mixerChannel) :
         _audioplayarray(audioplayarray), 
         _audioenvelop(audioenvelop),
+        _audioenvelop2(nullptr),
         _audiomixer(audiomixer),
-        _mixerChannel(mixerChannel)
+        _audiomixer2(nullptr),
+        _mixerChannel(mixerChannel),
+        _mixerChannel2(0)
     {
     }
 
     audiovoice(TAudioPlay *audioplayarray, AudioEffectEnvelope *audioenvelop) :
         _audioplayarray(audioplayarray), 
         _audioenvelop(audioenvelop),
+        _audioenvelop2(nullptr),
         _audiomixer(nullptr),
-        _mixerChannel(0)
+        _audiomixer2(nullptr),
+        _mixerChannel(0),
+        _mixerChannel2(0)
     {
     }
 
@@ -123,12 +129,20 @@ public:
         _audioenvelop(audioenvelop1),
         _audioenvelop2(audioenvelop2),
         _audiomixer(nullptr),
-        _mixerChannel(0)
+        _audiomixer2(nullptr),
+        _mixerChannel(0),
+        _mixerChannel2(0)
     {
     }
 
     audiovoice(TAudioPlay *audioplayarray) : 
-        _audioplayarray(audioplayarray) {
+        _audioplayarray(audioplayarray),
+        _audioenvelop(nullptr),
+        _audioenvelop2(nullptr),
+        _audiomixer(nullptr),
+        _audiomixer2(nullptr),
+        _mixerChannel(0),
+        _mixerChannel2(0) {
     }
 
     audiovoice(TAudioPlay *audioplayarray, AudioMixer4 *audiomixer, uint8_t mixerChannel) :
@@ -190,6 +204,9 @@ class samplermodel {
                 return nullptr;
             }
             std::map<uint8_t, TSample*>* channelNotes = _channelNotes[channel];
+            if (channelNotes == nullptr)
+                return nullptr;
+
             if (channelNotes->find(note) == channelNotes->end()){
                 return nullptr;
             }
@@ -233,6 +250,17 @@ class samplermodel {
 
     private:
         std::map<uint8_t, std::map<uint8_t, TSample*>*> _channelNotes;
+};
+
+template <typename TVoice, typename TSample>
+struct notetocomplete
+{
+public:
+    audiovoice<TVoice> *voice = nullptr;
+    TSample *sample = nullptr;
+    uint8_t noteNumber = 0;
+    uint8_t noteChannel = 0;
+    /* data */
 };
 
 template<typename TVoice, typename TSample>
@@ -294,9 +322,20 @@ public:
     }
 
     void update() {
-        for (auto && voice : _voicesWaitingToComplete) {
-            if (voice->isPlaying() && !voice->_audioenvelop->isActive()) {
-                voice->_audioplayarray->stop();
+        std::vector< notetocomplete<TVoice, TSample>* > voicesWaitingToComplete(_voicesWaitingToComplete);
+        for (auto && voice : voicesWaitingToComplete) {
+            bool envelopeIsComplete = false;
+            if (voice->voice->_audioenvelop != nullptr)
+                envelopeIsComplete = !voice->voice->_audioenvelop->isActive();
+            envelopeIsComplete |= !voice->voice->isPlaying();
+
+            if (envelopeIsComplete) {
+                //if (voice->voice->isPlaying())
+                //    voice->voice->_audioplayarray->stop();
+                //noteOFF()_!!
+                voiceOffEvent(voice->voice->_audioplayarray, voice->sample, voice->noteNumber, voice->noteChannel);
+                _voicesWaitingToComplete.erase(std::find(std::begin(_voicesWaitingToComplete), std::end(_voicesWaitingToComplete), voice));
+                delete voice;
             }
         }
     }
@@ -304,10 +343,11 @@ public:
  protected:
     polyphonicsampler<audiovoice<TVoice>, TSample> _polysampler;
     polyphonic<audiovoice<TVoice>> &_polyphonic;
-    std::vector<audiovoice<TVoice>*> _voicesWaitingToComplete;
+    std::vector< notetocomplete<TVoice, TSample>* > _voicesWaitingToComplete;
 
     void noteEventCallback(audiovoice<TVoice> *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn, bool retrigger)    
     {
+        Serial.printf("noteEventCallback note:%d; channel:%d; velocity:%d; isNoteOn: %x; retr:%x; \r\n", noteNumber, noteChannel, velocity, isNoteOn, retrigger);
         if (voice == nullptr)
             return;
 
@@ -339,7 +379,13 @@ public:
                 voice->_audioenvelop2->noteOff();
             }
             voiceOffEvent(voice->_audioplayarray, sample, noteNumber, noteChannel);
-            _voicesWaitingToComplete.push_back(voice);
+            notetocomplete<TVoice, TSample> *note = new notetocomplete<TVoice, TSample>();
+            note->voice = voice;
+            note->sample = sample;
+            note->noteNumber = noteNumber;
+            note->noteChannel = noteChannel;
+            
+            _voicesWaitingToComplete.push_back(note);
         }
     }
     

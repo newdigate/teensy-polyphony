@@ -16,7 +16,9 @@ set(HEADER_FILES
 		polyphonic.h
 		TeensyPolyphony.h
 		loopsampler.h
-		loopsamplerenums.h)
+		loopsamplerenums.h
+		MySampler.h
+		sdsampleplayernote.h)
 
 if (NOT DEFINED TEENSY_VERSION)
 	include(CMakeLists.linux.cmake)

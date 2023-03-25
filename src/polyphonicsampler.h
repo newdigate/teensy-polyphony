@@ -133,7 +133,7 @@ public:
                     // note is not active, allocate a voice if possible
                     voice = getVoice(noteNumber, noteChannel);
                     if (voice != nullptr) {
-                        TSample *sample = _findSampleFunction(noteNumber, noteChannel);
+                        sample = _findSampleFunction(noteNumber, noteChannel);
                         activenote<TVoice, TSample> *activeNote = allocateActiveNote(voice, sample, noteNumber, noteChannel);
                     }
                 } else {
@@ -174,7 +174,8 @@ public:
             
             case triggertype_play_while_notedown :
             {   
-                 
+                activenote<TVoice, TSample>* activenote = isNoteActive(noteNumber, noteChannel);
+                noteOff(noteNumber, noteChannel, activenote);
                 break;
             }
 
