@@ -126,6 +126,8 @@ namespace newdigate
                 return;
             }
             for (auto && progReg : *progressRegsForNoteAndChannel) {
+                if (progReg == nullptr)
+                    continue;
 
                 std::vector< ProgressIndictation* > *progressIndicators = _progressIndicatorsByRegId[progReg->_id];
 
@@ -141,7 +143,7 @@ namespace newdigate
                                         && ind->_registration._noteChannel == noteChannel
                                         && &(ind->_voice) == voice; 
                                 } 
-                            ));
+                            ), std::end (*progressIndicators) );
                 }
                 /*
                 for (auto && ind : *(reg.second)) {
