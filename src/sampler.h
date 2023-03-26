@@ -336,6 +336,7 @@ public:
                 //    voice->voice->_audioplayarray->stop();
                 //noteOFF()_!!
                 voiceOffEndEvent(voice->voice->_audioplayarray, voice->sample, voice->noteNumber, voice->noteChannel);
+                _polyphonic.freeVoice(voice->voice);
                 _voicesWaitingToComplete.erase(std::find(std::begin(_voicesWaitingToComplete), std::end(_voicesWaitingToComplete), voice));
                 delete voice;
             }
