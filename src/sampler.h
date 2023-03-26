@@ -310,7 +310,9 @@ public:
     }
 
     virtual void voiceOnEvent(TVoice *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) = 0;
-    virtual void voiceOffEvent(TVoice *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel) = 0;
+    virtual void voiceOffBeginEvent(TVoice *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel) = 0;
+    virtual void voiceOffEndEvent(TVoice *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel) = 0;
+
     virtual void voiceRetriggerEvent(TVoice *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) = 0;
     virtual TSample* findSample(uint8_t noteNumber, uint8_t noteChannel) = 0;
 
@@ -333,7 +335,7 @@ public:
                 //if (voice->voice->isPlaying())
                 //    voice->voice->_audioplayarray->stop();
                 //noteOFF()_!!
-                voiceOffEvent(voice->voice->_audioplayarray, voice->sample, voice->noteNumber, voice->noteChannel);
+                voiceOffEndEvent(voice->voice->_audioplayarray, voice->sample, voice->noteNumber, voice->noteChannel);
                 _voicesWaitingToComplete.erase(std::find(std::begin(_voicesWaitingToComplete), std::end(_voicesWaitingToComplete), voice));
                 delete voice;
             }
@@ -378,7 +380,7 @@ public:
             if (voice->_audioenvelop2 != nullptr) {
                 voice->_audioenvelop2->noteOff();
             }
-            voiceOffEvent(voice->_audioplayarray, sample, noteNumber, noteChannel);
+            voiceOffBeginEvent(voice->_audioplayarray, sample, noteNumber, noteChannel);
             notetocomplete<TVoice, TSample> *note = new notetocomplete<TVoice, TSample>();
             note->voice = voice;
             note->sample = sample;
@@ -466,7 +468,10 @@ public:
         voice->playRaw(sample->_data, sample->_sampleLength, sample->_numChannels);
     }
 
-    void voiceOffEvent(AudioPlayArrayResmp *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel) override {
+    void voiceOffBeginEvent(AudioPlayArrayResmp *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel) override {
+    }
+
+    void voiceOffEndEvent(AudioPlayArrayResmp *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel) override {
     }
 
     void voiceRetriggerEvent(AudioPlayArrayResmp *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override{
@@ -497,7 +502,10 @@ public:
         voice->playRaw( sample->_filename, sample->_numChannels);
     }
 
-    void voiceOffEvent(AudioPlaySdResmp *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel) override {
+    void voiceOffBeginEvent(AudioPlaySdResmp *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel) override {
+    }
+
+    void voiceOffEndEvent(AudioPlaySdResmp *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel) override {
     }
 
     void voiceRetriggerEvent(AudioPlaySdResmp *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override{
@@ -523,7 +531,10 @@ public:
         voice->play(sample->_filename);
     }
 
-    void voiceOffEvent(AudioPlaySdWav *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel) override {
+    void voiceOffBeginEvent(AudioPlaySdWav *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel) override {
+    }
+
+    void voiceOffEndEvent(AudioPlaySdWav *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel) override {
     }
 
     void voiceRetriggerEvent(AudioPlaySdWav *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override{
@@ -549,7 +560,10 @@ public:
         voice->play(sample->_filename);
     }
 
-    void voiceOffEvent(AudioPlaySdRaw *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel) override {
+    void voiceOffBeginEvent(AudioPlaySdRaw *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel) override {
+    }
+
+    void voiceOffEndEvent(AudioPlaySdRaw *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel) override {
     }
 
     void voiceRetriggerEvent(AudioPlaySdRaw *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override{
@@ -575,7 +589,10 @@ public:
         voice->play((unsigned int *)sample->_data);// , sample->_sampleLength, sample->_numChannels);
     }
 
-    void voiceOffEvent(AudioPlayMemory *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel) override {
+    void voiceOffBeginEvent(AudioPlayMemory *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel) override {
+    }
+
+    void voiceOffEndEvent(AudioPlayMemory *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel) override {
     }
 
     void voiceRetriggerEvent(AudioPlayMemory *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override{

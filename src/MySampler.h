@@ -111,8 +111,12 @@ namespace newdigate
             //sample->_voice = voice;
         }
 
-        void voiceOffEvent(AudioPlaySdResmp *voice, sdsampleplayernote *sample, uint8_t noteNumber, uint8_t noteChannel) override {
-            Serial.printf("Voice OFF event: note: %d; channel: %d\r\n", noteNumber, noteChannel);
+        void voiceOffBeginEvent(AudioPlaySdResmp *voice, sdsampleplayernote *sample, uint8_t noteNumber, uint8_t noteChannel) override {
+            Serial.printf("Voice OFF begin event: note: %d; channel: %d\r\n", noteNumber, noteChannel);
+        }
+
+        void voiceOffEndEvent(AudioPlaySdResmp *voice, sdsampleplayernote *sample, uint8_t noteNumber, uint8_t noteChannel) override {
+            Serial.printf("Voice OFF end event: note: %d; channel: %d\r\n", noteNumber, noteChannel);
 
             std::map<uint8_t, std::vector< ProgressRegistration*>*> *progressRegistrationsForChannel = _progressRegistrations[noteChannel];
             if (progressRegistrationsForChannel == nullptr) {
