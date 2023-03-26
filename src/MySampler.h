@@ -135,35 +135,20 @@ namespace newdigate
 
                 std::vector< ProgressIndictation* > *progressIndicators = _progressIndicatorsByRegId[progReg->_id];
 
-                if (progressIndicators != nullptr) {
-                    if (progressIndicators->size() > 0)
-                        progressIndicators->erase( 
-                            std::remove_if(
-                                std::begin( *progressIndicators ),
-                                std::end( *progressIndicators ),
-                                [noteNumber, noteChannel, voice] (const ProgressIndictation *ind) -> bool { 
-                                    return 
-                                        ind->_registration._noteNumber == noteNumber 
-                                        && ind->_registration._noteChannel == noteChannel
-                                        && &(ind->_voice) == voice; 
-                                } 
-                            ), std::end (*progressIndicators) );
+                if (progressIndicators != nullptr && progressIndicators->size() > 0) {
+                    progressIndicators->erase( 
+                        std::remove_if(
+                            std::begin( *progressIndicators ),
+                            std::end( *progressIndicators ),
+                            [noteNumber, noteChannel, voice] (const ProgressIndictation *ind) -> bool { 
+                                return 
+                                    ind->_registration._noteNumber == noteNumber 
+                                    && ind->_registration._noteChannel == noteChannel
+                                    && &(ind->_voice) == voice; 
+                            } 
+                        ), std::end (*progressIndicators) );
                 }
-                /*
-                for (auto && ind : *(reg.second)) {
-
-
-                    std::vector<ProgressIndictation*>::iterator it = std::find_if( reg.second->begin(), reg.second->end(), 
-                        [noteNumber, noteChannel] (const ProgressIndictation *ind) -> bool { 
-                            return ind->_registration._noteNumber == noteNumber && ind->_registration._noteChannel == noteChannel; 
-                        } );
-                    if (it != reg.second->end())
-                        reg.second->erase(it);
-                }
-                */
             }
-
-            //_progressIndicatorsByRegId.remove();
         }
 
         void voiceRetriggerEvent(AudioPlaySdResmp *voice, sdsampleplayernote *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override {
