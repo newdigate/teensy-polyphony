@@ -30,29 +30,47 @@
 #include "polyphonic.h"
 #include "loopsamplerenums.h"
 
+enum activenotestate {
+    noteDown = 0,
+    noteUpReceived = 1,
+    noteComplete = 2
+};
+
 template <typename TVoice, typename TSample>
 class activenote {
     public:
         activenote(TVoice *voice, TSample *sample) : _voice(voice), _sample(sample) {}
         TVoice *_voice;
         TSample *_sample;
+        bool _noteOffRecieved = false;
 };
 
 template <typename TVoice, typename TSample>
 class polyphonicsampler {
 public:
-    typedef std::function<void(TVoice *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t noteVelocity, bool isNoteOn, bool retrigger)> NoteEventCallback;
+    typedef std::function<bool(TVoice *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t noteVelocity, bool retrigger)> NoteDownEventCallback;
+    typedef std::function<bool(TVoice *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel)> VoicePredicateCallback;
+    typedef std::function<void(TVoice *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel)> NoteUpEventCallback;
+    typedef std::map<uint8_t, std::map<uint8_t, std::vector<activenote<TVoice, TSample>*>*>*> ActiveNotesChannelKeyMap;
     typedef std::function<TSample*(uint8_t noteNumber, uint8_t noteChannel)> FindSampleCallback;
     typedef std::function<triggertype(uint8_t noteNumber, uint8_t noteChannel)> FindTriggerTypeCallback;
 
     polyphonicsampler(
-            polyphonic<TVoice> &polyphony, 
-            NoteEventCallback noteEventFunction,
-            FindSampleCallback findSampleFunction,
-            FindTriggerTypeCallback findTriggerTypeFunction) : 
+            polyphonic<TVoice>      &polyphony, 
+            NoteDownEventCallback   noteDownEventFunction,
+            NoteUpEventCallback     noteUpBeginEventFunction,
+            NoteUpEventCallback     noteUpEndEventFunction,
+            FindSampleCallback      findSampleFunction,
+            FindTriggerTypeCallback findTriggerTypeFunction,
+            VoicePredicateCallback  isVoiceStillActiveFunction,
+            VoicePredicateCallback  isVoiceStillNoteDownFunction) : 
         _polyphony(polyphony),
         _activeNotesPerChannel(),
-        _noteEventFunction(noteEventFunction),
+        _noteDownEventFunction(noteDownEventFunction),
+        _noteUpBeginEventFunction(noteUpBeginEventFunction),
+        _noteUpEndEventFunction(noteUpEndEventFunction),
+        _isVoiceStillActiveFunction(isVoiceStillActiveFunction),
+        _isVoiceStillNoteDownFunction(isVoiceStillNoteDownFunction),
         _findSampleFunction(findSampleFunction),
         _findTriggerTypeFunction(findTriggerTypeFunction),
         _useStaticTriggerType(false),
@@ -61,13 +79,21 @@ public:
     }
 
     polyphonicsampler(
-            polyphonic<TVoice> &polyphony, 
-            NoteEventCallback noteEventFunction,
-            FindSampleCallback findSampleFunction,
-            triggertype trigger) : 
+            polyphonic<TVoice>      &polyphony, 
+            NoteDownEventCallback   noteDownEventFunction,
+            NoteUpEventCallback     noteUpBeginEventFunction,
+            NoteUpEventCallback     noteUpEndEventFunction,
+            FindSampleCallback      findSampleFunction,
+            triggertype             trigger,
+            VoicePredicateCallback  isVoiceStillActiveFunction,
+            VoicePredicateCallback  isVoiceStillNoteDownFunction) : 
         _polyphony(polyphony),
         _activeNotesPerChannel(),
-        _noteEventFunction(noteEventFunction),
+        _noteDownEventFunction(noteDownEventFunction),
+        _noteUpBeginEventFunction(noteUpBeginEventFunction),
+        _noteUpEndEventFunction(noteUpEndEventFunction),
+        _isVoiceStillActiveFunction(isVoiceStillActiveFunction),
+        _isVoiceStillNoteDownFunction(isVoiceStillNoteDownFunction),
         _findSampleFunction(findSampleFunction),
         _findTriggerTypeFunction([] (uint8_t noteNumber, uint8_t noteChannel) -> triggertype { return triggertype::triggertype_play_while_notedown; }),
         _useStaticTriggerType(true),
@@ -76,12 +102,20 @@ public:
     }
 
     polyphonicsampler(
-            polyphonic<TVoice> &polyphony, 
-            NoteEventCallback noteEventFunction,
-            FindSampleCallback findSampleFunction) : 
+            polyphonic<TVoice>      &polyphony, 
+            NoteDownEventCallback   noteDownEventFunction,
+            NoteUpEventCallback     noteUpBeginEventFunction,
+            NoteUpEventCallback     noteUpEndEventFunction,
+            FindSampleCallback      findSampleFunction,
+            VoicePredicateCallback  isVoiceStillActiveFunction,
+            VoicePredicateCallback  isVoiceStillNoteDownFunction) : 
         _polyphony(polyphony),
         _activeNotesPerChannel(),
-        _noteEventFunction(noteEventFunction),
+        _noteDownEventFunction(noteDownEventFunction),
+        _noteUpBeginEventFunction(noteUpBeginEventFunction),
+        _noteUpEndEventFunction(noteUpEndEventFunction),
+        _isVoiceStillActiveFunction(isVoiceStillActiveFunction),
+        _isVoiceStillNoteDownFunction(isVoiceStillNoteDownFunction),
         _findSampleFunction(nullptr),
         _useStaticTriggerType(true),
         _staticTriggerType(triggertype::triggertype_play_while_notedown)
@@ -109,11 +143,14 @@ public:
     void noteDown(uint8_t noteNumber, uint8_t velocity, uint8_t noteChannel, triggertype trigger) {
         switch (trigger) {
             case triggertype_play_until_end : {
-                TVoice* voice = getVoice(noteNumber, noteChannel);
+                TVoice* voice = _polyphony.useVoice();
+                
                 if (voice != nullptr) {    
                     TSample *sample = _findSampleFunction(noteNumber, noteChannel);
-                    activenote<TVoice, TSample> *activeNote = allocateActiveNote(voice, sample, noteNumber, noteChannel);
-                    noteOn(noteNumber, velocity, noteChannel, voice, sample);     
+                    activenote<TVoice, TSample> *activeNote = new activenote<TVoice, TSample>(voice, sample);                 
+                    if (noteOn(noteNumber, velocity, noteChannel, voice, sample))
+                        addActiveNote(activeNote, noteNumber, noteChannel);
+                    else delete activeNote;
                 } 
             }           
             break;
@@ -122,19 +159,15 @@ public:
                 TVoice *voice = nullptr;
                 TSample *sample = nullptr;
                 bool isretrigger = false;
-                activenote<TVoice, TSample> *activeNote = nullptr;
-
-                std::map<uint8_t, activenote<TVoice, TSample>*> *activeNotesForChannel = _activeNotesPerChannel[noteChannel];
-                if (activeNotesForChannel != nullptr) {
-                    activeNote = (*activeNotesForChannel)[noteNumber];
-                }
+                activenote<TVoice, TSample> *activeNote = isNoteActive(noteNumber, noteChannel);
 
                 if (activeNote == nullptr) {
                     // note is not active, allocate a voice if possible
-                    voice = getVoice(noteNumber, noteChannel);
+                    voice = _polyphony.useVoice();
                     if (voice != nullptr) {
                         sample = _findSampleFunction(noteNumber, noteChannel);
-                        activenote<TVoice, TSample> *activeNote = allocateActiveNote(voice, sample, noteNumber, noteChannel);
+                        activenote<TVoice, TSample> *activeNote = new activenote<TVoice, TSample>(voice, sample);
+                        addActiveNote(activeNote, noteNumber, noteChannel);
                     }
                 } else {
                     // note is already active, just re-trigger it...
@@ -148,14 +181,15 @@ public:
             break;
 
             case triggertype_play_until_subsequent_notedown: {
-                activenote<TVoice, TSample>* activenote = isNoteActive(noteNumber, noteChannel);
-                if (activenote) {
-                    noteOff(noteNumber, noteChannel, activenote);  
+                activenote<TVoice, TSample>* activeNote = isNoteActive(noteNumber, noteChannel);
+                if (activeNote) {
+                    noteOff(noteNumber, noteChannel, activeNote);  
                 } else {
-                    TVoice *voice = getVoice(noteNumber, noteChannel);
+                    TVoice *voice = _polyphony.useVoice();
                     if (voice != nullptr) {
                         TSample *sample = _findSampleFunction(noteNumber, noteChannel);
-                        activenote = allocateActiveNote(voice, sample, noteNumber, noteChannel);
+                        activeNote = new activenote<TVoice, TSample>(voice, sample);
+                        addActiveNote(activeNote, noteNumber, noteChannel);
                         noteOn(noteNumber, velocity, noteChannel, voice, sample);
                     }
                 }
@@ -183,18 +217,15 @@ public:
         }
     }
 
-    void noteOn(uint8_t noteNumber, uint8_t velocity, uint8_t noteChannel, TVoice* voice, TSample *sample, bool isretrigger = false) {
+    bool noteOn(uint8_t noteNumber, uint8_t velocity, uint8_t noteChannel, TVoice* voice, TSample *sample, bool isretrigger = false) {
         if (voice != nullptr) {            
-            _noteEventFunction(voice, sample, noteNumber, noteChannel, velocity, true, isretrigger);
+            return _noteDownEventFunction(voice, sample, noteNumber, noteChannel, velocity, isretrigger);
         }
+        return false;
     }
 
     void noteOff(uint8_t noteNumber, uint8_t noteChannel) {
-        std::map<uint8_t, activenote<TVoice, TSample>*> *activeNotesForChannel = _activeNotesPerChannel[noteChannel];
-        if (activeNotesForChannel == nullptr)
-            return;
-        
-        activenote<TVoice, TSample>* activeNote = (*activeNotesForChannel)[noteNumber];
+        activenote<TVoice, TSample>* activeNote = isNoteActive(noteNumber, noteChannel);
         if (activeNote == nullptr)
             return;
 
@@ -205,11 +236,7 @@ public:
         if (activeNote == nullptr)
             return;
 
-        _noteEventFunction(activeNote->_voice, activeNote->_sample, noteNumber, noteChannel, 0, false, false);
-        std::map<uint8_t, activenote<TVoice, TSample>*> *activeNotesForChannel = _activeNotesPerChannel[noteChannel];
-        if (activeNotesForChannel != nullptr)
-            activeNotesForChannel->erase(noteNumber);
-        delete activeNote;
+        _noteUpBeginEventFunction(activeNote->_voice, activeNote->_sample, noteNumber, noteChannel);
     }
 
     void turnOffAllNotesStillPlaying() {
@@ -220,50 +247,67 @@ public:
         }
     }
 
-protected:
-    NoteEventCallback   _noteEventFunction;
-    FindSampleCallback  _findSampleFunction;
-    polyphonic<TVoice>      &_polyphony;
-    
-    std::map<uint8_t, std::map<uint8_t, activenote<TVoice, TSample>*>*> _activeNotesPerChannel;
+    virtual void update() {
+        for (auto && activenotesForChannel : _activeNotesPerChannel){
+            for (auto && activenotesForChannelAndKey : *(activenotesForChannel.second)) {
+                for (auto && activeNote : *(activenotesForChannelAndKey.second)) {
+                    if (!activeNote->_noteOffRecieved) {
+                        if (!_isVoiceStillNoteDownFunction(activeNote->_voice, activeNote->_sample, activenotesForChannelAndKey.first, activenotesForChannel.first)){
+                            _noteUpBeginEventFunction(activeNote->_voice, activeNote->_sample, activenotesForChannel.first, activenotesForChannelAndKey.first);
+                            activeNote->_noteOffRecieved = true;
+                        }
+                    } else
+                    {                        
+                        if (!_isVoiceStillActiveFunction(activeNote->_voice, activeNote->_sample, activenotesForChannelAndKey.first, activenotesForChannel.first)){
+                            _noteUpEndEventFunction(activeNote->_voice, activeNote->_sample, activenotesForChannel.first, activenotesForChannelAndKey.first);
+                            activenotesForChannelAndKey.second->erase(std::remove(activenotesForChannelAndKey.second->begin(), activenotesForChannelAndKey.second->end(), activeNote), activenotesForChannelAndKey.second->end());
+                            delete activeNote;
+                        }
+                    }
+                }
+            }
+        }
+    }
 
-    FindTriggerTypeCallback _findTriggerTypeFunction;
-    bool _useStaticTriggerType;
-    triggertype _staticTriggerType = triggertype_play_while_notedown;
+protected:
+    NoteDownEventCallback       _noteDownEventFunction;
+    NoteUpEventCallback         _noteUpBeginEventFunction;
+    NoteUpEventCallback         _noteUpEndEventFunction;
+    VoicePredicateCallback      _isVoiceStillActiveFunction;
+    VoicePredicateCallback      _isVoiceStillNoteDownFunction;
+    FindSampleCallback          _findSampleFunction;
+    polyphonic<TVoice>          &_polyphony;
+    ActiveNotesChannelKeyMap     _activeNotesPerChannel;
+    FindTriggerTypeCallback     _findTriggerTypeFunction;
+    bool                        _useStaticTriggerType;
+    triggertype                 _staticTriggerType = triggertype_play_while_notedown;
 
     activenote<TVoice, TSample>* isNoteActive(uint8_t noteNumber, uint8_t noteChannel) {
-        activenote<TVoice, TSample> *activeNote = nullptr;
-
-        std::map<uint8_t, activenote<TVoice, TSample>*> *activeNotesForChannel = _activeNotesPerChannel[noteChannel];
+        std::map<uint8_t, std::vector<activenote<TVoice, TSample>*>*> *activeNotesForChannel = _activeNotesPerChannel[noteChannel];
         if (activeNotesForChannel != nullptr) {
-            activeNote = (*activeNotesForChannel)[noteNumber];
+            std::vector<activenote<TVoice, TSample>*> *activeNotes = (*activeNotesForChannel)[noteNumber];
+            if (activeNotes->size() > 0)
+                return (*activeNotes)[0];
         }
-        return activeNote;
+        return nullptr;
     }
     
-    TVoice* getVoice(uint8_t noteNumber, uint8_t noteChannel ) {
-        TVoice* voice = _polyphony.useVoice(); // getFirstFreeVoice();
-        if (voice != nullptr) {
-            std::map<uint8_t, activenote<TVoice, TSample>*> *activeNotesForChannel = _activeNotesPerChannel[noteChannel];
-            if (activeNotesForChannel == nullptr) {
-                activeNotesForChannel = new std::map<uint8_t, activenote<TVoice, TSample>*>();
-                _activeNotesPerChannel[noteChannel] = activeNotesForChannel;
-            }
+    void addActiveNote(activenote<TVoice, TSample> *activeNote, uint8_t noteNumber, uint8_t noteChannel ) {
+        if (activeNote == nullptr)
+            return;
 
-        } else
-        {
-            // note dropped: insufficient polyphony to play this note
-            //indexOfVoice = 255;
-            Serial.printf("Note dropped: %i \n", noteNumber);
+        std::map<uint8_t, std::vector<activenote<TVoice, TSample>*>*> *activeNotesForChannel = _activeNotesPerChannel[noteChannel];
+        if (activeNotesForChannel == nullptr) {
+            activeNotesForChannel = new std::map<uint8_t, std::vector<activenote<TVoice, TSample>*>*>();
+            _activeNotesPerChannel[noteChannel] = activeNotesForChannel;
         }
-        return voice;
-    }
 
-    activenote<TVoice, TSample>* allocateActiveNote(TVoice *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel) {
-        std::map<uint8_t, activenote<TVoice, TSample>*> *activeNotesForChannel = _activeNotesPerChannel[noteChannel];
-        activenote<TVoice, TSample> *activeNote = new activenote<TVoice, TSample>(voice, sample);
-        (*activeNotesForChannel)[noteNumber] = activeNote;
-        return activeNote;
+        std::vector<activenote<TVoice, TSample>*> *activeNotesForChannelAndKey = (*activeNotesForChannel)[noteNumber];
+        if (activeNotesForChannelAndKey == nullptr)  {
+            activeNotesForChannelAndKey = new std::vector<activenote<TVoice, TSample>*>();
+            (*activeNotesForChannel)[noteNumber] = activeNotesForChannelAndKey;
+        }
+        activeNotesForChannelAndKey->push_back(activeNote);
     }
 };
 

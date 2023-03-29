@@ -5,8 +5,7 @@ project(teensypolyphony C CXX)
 set(SOURCE_FILES
 		sampler.cpp
 		stringsampler.cpp
-		polyphonicsampler.cpp
-		loopsampler.cpp)
+		polyphonicsampler.cpp)
 
 set(HEADER_FILES
 		audiovoicepolyphonic.h
@@ -15,7 +14,6 @@ set(HEADER_FILES
 		polyphonicsampler.h
 		polyphonic.h
 		TeensyPolyphony.h
-		loopsampler.h
 		loopsamplerenums.h
 		MySampler.h
 		sdsampleplayernote.h)

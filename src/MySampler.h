@@ -6,7 +6,6 @@
 #include <TeensyVariablePlayback.h>
 #include <tuple>
 #include <sampler.h>
-#include "loopsampler.h"
 #include "audiovoicepolyphonic.h"
 
 namespace newdigate
@@ -88,10 +87,11 @@ namespace newdigate
         virtual ~MyLoopSampler() {
         }
 
-        void voiceOnEvent(AudioPlaySdResmp *voice, sdsampleplayernote *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override {
+        bool voiceOnEvent(AudioPlaySdResmp *voice, sdsampleplayernote *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override {
+            if (voice == nullptr || sample == nullptr || sample->_filename == nullptr)
+                return false;
+
             Serial.println("Voice ON event");
-            if (sample == nullptr || sample->_filename == nullptr)
-                return;
 
             AudioPlaySdResmp &audioplay = *voice;
             switch (sample->_playdirection) {
@@ -105,10 +105,10 @@ namespace newdigate
                 case playlooptype_pingpong: audioplay.setLoopType(loop_type::looptype_pingpong); break;
             }
 
-            audioplay.playWav(sample->_filename);
-            createIndicatorForRegistrations(noteNumber, noteChannel, sample->_filename, voice);
-
-            //sample->_voice = voice;
+            bool success = audioplay.playWav(sample->_filename);
+            if (success)
+                createIndicatorForRegistrations(noteNumber, noteChannel, sample->_filename, voice);
+            return success;
         }
 
         void voiceOffBeginEvent(AudioPlaySdResmp *voice, sdsampleplayernote *sample, uint8_t noteNumber, uint8_t noteChannel) override {
@@ -151,8 +151,8 @@ namespace newdigate
             }
         }
 
-        void voiceRetriggerEvent(AudioPlaySdResmp *voice, sdsampleplayernote *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override {
-
+        bool voiceRetriggerEvent(AudioPlaySdResmp *voice, sdsampleplayernote *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override {
+            return true;
         }
 
         sdsampleplayernote* findSample(uint8_t noteNumber, uint8_t noteChannel) override {

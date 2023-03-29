@@ -54,13 +54,30 @@ public:
     stringsampler(polyphonic<stringvoice> polyphony) : 
             _polysampler(
                 polyphony, 
-                [&] (stringvoice *voice, stringnote *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t noteVelocity, bool isNoteOn, bool retrigger) {
-                    noteEvent(voice, sample, noteNumber, noteChannel, noteVelocity, isNoteOn, retrigger);
+                // noteDownEventFunction
+                [&] (stringvoice *voice, stringnote *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t noteVelocity, bool retrigger) -> bool {
+                    return noteDownEvent(voice, sample, noteNumber, noteChannel, noteVelocity, retrigger);
+                },
+                // noteUpBeginEventFunction
+                [&] (stringvoice *voice, stringnote *sample, uint8_t noteNumber, uint8_t noteChannel) {
+                    noteUpBeginEvent(voice, sample, noteNumber, noteChannel);
+                },
+                // noteUpEndEventFunction
+                [&] (stringvoice *voice, stringnote *sample, uint8_t noteNumber, uint8_t noteChannel) {
+                    noteUpEndEvent(voice, sample, noteNumber, noteChannel);
                 },
                 [&] (uint8_t noteNumber, uint8_t noteChannel) -> stringnote* { 
                     stringnote *result = new stringnote();
                     result->_freq = calcFrequency(noteNumber);
                     return result;
+                },
+                // isVoiceStillActiveFunction
+                [&] (stringvoice *voice, stringnote *sample, uint8_t noteNumber, uint8_t noteChannel) -> bool {
+                    return false;
+                },
+                // isVoiceStillNoteDownFunction
+                [&] (stringvoice *voice, stringnote *sample, uint8_t noteNumber, uint8_t noteChannel) -> bool {
+                    return true;
                 })
     {
     }
@@ -69,11 +86,21 @@ public:
     virtual ~stringsampler() {
     }
 
-    void noteEvent(stringvoice *voice, stringnote *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn, bool retrigger) {
-        if (isNoteOn) {
-            voice->_strings->noteOn(sample->_freq, velocity/255.0);
-            voice->_envelop->noteOn();
-        }
+    bool noteDownEvent(stringvoice *voice, stringnote *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool retrigger) {
+        if (voice == nullptr)
+            return false;
+
+        voice->_strings->noteOn(sample->_freq, velocity/255.0);
+        voice->_envelop->noteOn();
+        return true;
+    }
+
+    void noteUpBeginEvent(stringvoice *voice, stringnote *sample, uint8_t noteNumber, uint8_t noteChannel) {
+        voice->_envelop->noteOff();
+    }
+
+    void noteUpEndEvent(stringvoice *voice, stringnote *sample, uint8_t noteNumber, uint8_t noteChannel) {
+        voice->_strings->noteOff(0);
     }
 
     void turnOffAllNotesStillPlaying() {

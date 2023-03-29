@@ -272,16 +272,32 @@ public:
     ) : 
         _polysampler(
             polyphonic,
-            [&] (audiovoice<TVoice> *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn, bool retrigger) {
-                noteEventCallback(voice, sample, noteNumber, noteChannel, velocity, isNoteOn, retrigger);
+            [&] (audiovoice<TVoice> *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool retrigger) -> bool {
+                return noteDownEventCallback(voice, sample, noteNumber, noteChannel, velocity, retrigger);
             },
+            [&] (audiovoice<TVoice> *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel) {
+                noteUpBeginEventCallback(voice, sample, noteNumber, noteChannel);
+            },
+            [&] (audiovoice<TVoice> *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel) {
+                noteUpEndEventCallback(voice, sample, noteNumber, noteChannel);
+            },
+            // findSampleFunction
             [&] (uint8_t noteNumber, uint8_t noteChannel) -> TSample* {
                 return findSample(noteNumber, noteChannel);
             },
-            fnGetTriggerType
+            fnGetTriggerType,
+            // isVoiceStillActiveFunction
+            [&] (audiovoice<TVoice> *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel) -> bool {
+                if (voice->_audioenvelop != nullptr)
+                    return !voice->_audioenvelop->isIdleOrComplete() && voice->_audioplayarray->isPlaying();
+                return voice->_audioplayarray->isPlaying();
+            },
+            // isVoiceStillNoteDownFunction
+            [&] (audiovoice<TVoice> *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel) -> bool {
+                return voice->_audioplayarray->isPlaying();
+            }
         ),
-        _polyphonic(polyphonic),
-        _voicesWaitingToComplete()
+        _polyphonic(polyphonic)
     {
     }
 
@@ -291,16 +307,31 @@ public:
     ) : 
         _polysampler(
             polyphonic,
-            [&] (audiovoice<TVoice> *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn, bool retrigger) {
-                noteEventCallback(voice, sample, noteNumber, noteChannel, velocity, isNoteOn, retrigger);
+            [&] (audiovoice<TVoice> *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool retrigger) -> bool {
+                return noteDownEventCallback(voice, sample, noteNumber, noteChannel, velocity, retrigger);
+            },
+            [&] (audiovoice<TVoice> *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel) {
+                noteUpBeginEventCallback(voice, sample, noteNumber, noteChannel);
+            },
+            [&] (audiovoice<TVoice> *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel) {
+                noteUpEndEventCallback(voice, sample, noteNumber, noteChannel);
             },
             [&] (uint8_t noteNumber, uint8_t noteChannel) -> TSample* {
                 return findSample(noteNumber, noteChannel);
             },
-            staticTriggerType
+            staticTriggerType,
+            // isVoiceStillActiveFunction
+            [&] (audiovoice<TVoice> *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel) -> bool {
+                if (voice->_audioenvelop != nullptr)
+                    return voice->_audioenvelop->isActive();
+                return voice->_audioplayarray->isPlaying();
+            },
+            // isVoiceStillNoteDownFunction
+            [&] (audiovoice<TVoice> *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel) -> bool {
+                return voice->_audioplayarray->isPlaying();
+            }
         ),
-        _polyphonic(polyphonic),
-        _voicesWaitingToComplete()
+        _polyphonic(polyphonic)
     {
     }
 
@@ -309,11 +340,11 @@ public:
     virtual ~audiosampler() {
     }
 
-    virtual void voiceOnEvent(TVoice *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) = 0;
+    virtual bool voiceOnEvent(TVoice *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) = 0;
     virtual void voiceOffBeginEvent(TVoice *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel) = 0;
     virtual void voiceOffEndEvent(TVoice *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel) = 0;
 
-    virtual void voiceRetriggerEvent(TVoice *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) = 0;
+    virtual bool voiceRetriggerEvent(TVoice *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) = 0;
     virtual TSample* findSample(uint8_t noteNumber, uint8_t noteChannel) = 0;
 
     void trigger(uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn) {
@@ -324,72 +355,55 @@ public:
     }
 
     void update() {
-        std::vector< notetocomplete<TVoice, TSample>* > voicesWaitingToComplete(_voicesWaitingToComplete);
-        for (auto && voice : voicesWaitingToComplete) {
-            bool envelopeIsComplete = false;
-            if (voice->voice->_audioenvelop != nullptr)
-                envelopeIsComplete = !voice->voice->_audioenvelop->isActive();
-            envelopeIsComplete |= !voice->voice->isPlaying();
-
-            if (envelopeIsComplete) {
-                //if (voice->voice->isPlaying())
-                //    voice->voice->_audioplayarray->stop();
-                //noteOFF()_!!
-                voiceOffEndEvent(voice->voice->_audioplayarray, voice->sample, voice->noteNumber, voice->noteChannel);
-                _polyphonic.freeVoice(voice->voice);
-                _voicesWaitingToComplete.erase(std::find(std::begin(_voicesWaitingToComplete), std::end(_voicesWaitingToComplete), voice));
-                delete voice;
-            }
-        }
+        _polysampler.update();
     }
 
  protected:
     polyphonicsampler<audiovoice<TVoice>, TSample> _polysampler;
     polyphonic<audiovoice<TVoice>> &_polyphonic;
-    std::vector< notetocomplete<TVoice, TSample>* > _voicesWaitingToComplete;
 
-    void noteEventCallback(audiovoice<TVoice> *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn, bool retrigger)    
+    bool noteDownEventCallback(audiovoice<TVoice> *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool retrigger)    
     {
-        Serial.printf("noteEventCallback note:%d; channel:%d; velocity:%d; isNoteOn: %x; retr:%x; \r\n", noteNumber, noteChannel, velocity, isNoteOn, retrigger);
         if (voice == nullptr)
-            return;
+            return false;
 
-        if (isNoteOn) {
-            if (voice->_audiomixer != nullptr) {                        
-                voice->_audiomixer->gain( voice->_mixerChannel, velocity / 255.0);
-            }
-            if (voice->_audiomixer2 != nullptr) {                        
-                voice->_audiomixer2->gain( voice->_mixerChannel2, velocity / 255.0);
-            }
-            if (voice->_audioenvelop != nullptr) {
-                voice->_audioenvelop->noteOn();
-            }
-            if (voice->_audioenvelop2 != nullptr) {
-                voice->_audioenvelop2->noteOn();
-            }
-
-            if (retrigger)
-                voiceRetriggerEvent(voice->_audioplayarray, sample, noteNumber, noteChannel, velocity);
-            else
-                voiceOnEvent(voice->_audioplayarray, sample, noteNumber, noteChannel, velocity);
-        } else {
-            // Note off event
-            if (voice->_audioenvelop != nullptr) {
-                voice->_audioenvelop->noteOff();
-            }
-            
-            if (voice->_audioenvelop2 != nullptr) {
-                voice->_audioenvelop2->noteOff();
-            }
-            voiceOffBeginEvent(voice->_audioplayarray, sample, noteNumber, noteChannel);
-            notetocomplete<TVoice, TSample> *note = new notetocomplete<TVoice, TSample>();
-            note->voice = voice;
-            note->sample = sample;
-            note->noteNumber = noteNumber;
-            note->noteChannel = noteChannel;
-            
-            _voicesWaitingToComplete.push_back(note);
+        Serial.printf("noteDownEventCallback note:%d; channel:%d; velocity:%d; retr:%x; \r\n", noteNumber, noteChannel, velocity, retrigger);
+        if (voice->_audiomixer != nullptr) {                        
+            voice->_audiomixer->gain( voice->_mixerChannel, velocity / 255.0);
         }
+        if (voice->_audiomixer2 != nullptr) {                        
+            voice->_audiomixer2->gain( voice->_mixerChannel2, velocity / 255.0);
+        }
+        if (voice->_audioenvelop != nullptr) {
+            voice->_audioenvelop->noteOn();
+        }
+        if (voice->_audioenvelop2 != nullptr) {
+            voice->_audioenvelop2->noteOn();
+        }
+
+        if (retrigger)
+            return voiceRetriggerEvent(voice->_audioplayarray, sample, noteNumber, noteChannel, velocity);
+        else
+            return voiceOnEvent(voice->_audioplayarray, sample, noteNumber, noteChannel, velocity);
+    }
+
+    void noteUpBeginEventCallback(audiovoice<TVoice> *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel)    
+    {
+        Serial.printf("noteUpBeginEventCallback note:%d; channel:%d; \r\n", noteNumber, noteChannel);
+
+        // Note off event
+        if (voice->_audioenvelop != nullptr) {
+            voice->_audioenvelop->noteOff();
+        }
+        
+        if (voice->_audioenvelop2 != nullptr) {
+            voice->_audioenvelop2->noteOff();
+        }
+    }
+    
+    void noteUpEndEventCallback(audiovoice<TVoice> *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel) {
+        Serial.printf("noteUpEndEventCallback note:%d; channel:%d; \r\n", noteNumber, noteChannel);
+        voiceOffEndEvent(voice->_audioplayarray, sample, noteNumber, noteChannel);
     }
     
 };
@@ -463,10 +477,14 @@ public:
     virtual ~arraysampler() {
     }
 
-    void voiceOnEvent(AudioPlayArrayResmp *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override {
+    bool voiceOnEvent(AudioPlayArrayResmp *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override {
+        if (voice == nullptr)
+            return false;
+
         float factor = calcPitchFactor(noteNumber, sample->_noteNumber);
         voice->setPlaybackRate(factor);
         voice->playRaw(sample->_data, sample->_sampleLength, sample->_numChannels);
+        return true;
     }
 
     void voiceOffBeginEvent(AudioPlayArrayResmp *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel) override {
@@ -475,7 +493,8 @@ public:
     void voiceOffEndEvent(AudioPlayArrayResmp *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel) override {
     }
 
-    void voiceRetriggerEvent(AudioPlayArrayResmp *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override{
+    bool voiceRetriggerEvent(AudioPlayArrayResmp *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override{
+        return true;
     }
 
 protected:
@@ -497,10 +516,13 @@ public:
     virtual ~sdsampler() {
     }
 
-    void voiceOnEvent(AudioPlaySdResmp *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override {
+    bool voiceOnEvent(AudioPlaySdResmp *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override {
+        if (voice == nullptr || sample == nullptr || sample->_filename == nullptr)
+            return false;
+
         float factor = calcPitchFactor(noteNumber, sample->_noteNumber);
         voice->setPlaybackRate(factor);
-        voice->playRaw( sample->_filename, sample->_numChannels);
+        return voice->playRaw( sample->_filename, sample->_numChannels);
     }
 
     void voiceOffBeginEvent(AudioPlaySdResmp *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel) override {
@@ -509,7 +531,8 @@ public:
     void voiceOffEndEvent(AudioPlaySdResmp *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel) override {
     }
 
-    void voiceRetriggerEvent(AudioPlaySdResmp *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override{
+    bool voiceRetriggerEvent(AudioPlaySdResmp *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override{
+        return true;
     }
 };
 
@@ -528,8 +551,11 @@ public:
     virtual ~unpitchedsdwavsampler() {
     }
 
-    void voiceOnEvent(AudioPlaySdWav *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override {
-        voice->play(sample->_filename);
+    bool voiceOnEvent(AudioPlaySdWav *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override {
+        if (voice == nullptr || sample == nullptr || sample->_filename == nullptr)
+            return false;
+
+        return voice->play(sample->_filename);
     }
 
     void voiceOffBeginEvent(AudioPlaySdWav *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel) override {
@@ -538,7 +564,8 @@ public:
     void voiceOffEndEvent(AudioPlaySdWav *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel) override {
     }
 
-    void voiceRetriggerEvent(AudioPlaySdWav *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override{
+    bool voiceRetriggerEvent(AudioPlaySdWav *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override{
+        return true;
     }
 };
 
@@ -557,8 +584,11 @@ public:
     virtual ~unpitchedsdrawsampler() {
     }
 
-    void voiceOnEvent(AudioPlaySdRaw *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override {
-        voice->play(sample->_filename);
+    bool voiceOnEvent(AudioPlaySdRaw *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override {
+        if (voice == nullptr || sample == nullptr || sample->_filename == nullptr)
+            return false;
+
+        return voice->play(sample->_filename);
     }
 
     void voiceOffBeginEvent(AudioPlaySdRaw *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel) override {
@@ -567,7 +597,8 @@ public:
     void voiceOffEndEvent(AudioPlaySdRaw *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel) override {
     }
 
-    void voiceRetriggerEvent(AudioPlaySdRaw *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override{
+    bool voiceRetriggerEvent(AudioPlaySdRaw *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override{
+        return true;
     }
 };
 
@@ -586,8 +617,13 @@ public:
     virtual ~unpitchedmemorysampler() {
     }
 
-    void voiceOnEvent(AudioPlayMemory *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override {
+    bool voiceOnEvent(AudioPlayMemory *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override {
+
+        if (voice == nullptr || sample == nullptr || sample->_filename == nullptr)
+            return false;
+
         voice->play((unsigned int *)sample->_data);// , sample->_sampleLength, sample->_numChannels);
+        return true;
     }
 
     void voiceOffBeginEvent(AudioPlayMemory *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel) override {
@@ -596,7 +632,8 @@ public:
     void voiceOffEndEvent(AudioPlayMemory *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel) override {
     }
 
-    void voiceRetriggerEvent(AudioPlayMemory *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override{
+    bool voiceRetriggerEvent(AudioPlayMemory *voice, audiosample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override{
+        return true;
     }
 };
 

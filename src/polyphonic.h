@@ -55,7 +55,7 @@ public:
     }
 
     TVoice* useVoice() {
-        //Serial.printf("use voice %d\n", _voicesInUse);
+        Serial.printf("use voice %d\n", _voicesInUse);
         for (auto v : _voices) {
             if (!v->_isActive) {
                 v->_isActive = true;
@@ -67,6 +67,7 @@ public:
         for (auto v : _voices) {
             if ( v->_isActive) {
                 if( ! (&v->_voice)->isPlaying() ) {
+                    Serial.printf("reuse voice. %d\n", _voicesInUse);
                     return &v->_voice;
                 }
             } 
