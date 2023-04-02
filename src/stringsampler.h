@@ -49,50 +49,54 @@ public:
     float _freq;
 };
 
-class stringsampler {
+class stringsampler : polyphonicsampler<stringvoice, stringnote> {
 public:
     stringsampler(polyphonic<stringvoice> polyphony) : 
-            _polysampler(
-                polyphony, 
-                // noteDownEventFunction
-                [&] (stringvoice *voice, stringnote *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t noteVelocity, bool retrigger) -> bool {
-                    return noteDownEvent(voice, sample, noteNumber, noteChannel, noteVelocity, retrigger);
-                },
-                // noteUpBeginEventFunction
-                [&] (stringvoice *voice, stringnote *sample, uint8_t noteNumber, uint8_t noteChannel) {
-                    noteUpBeginEvent(voice, sample, noteNumber, noteChannel);
-                },
-                // noteUpEndEventFunction
-                [&] (stringvoice *voice, stringnote *sample, uint8_t noteNumber, uint8_t noteChannel) {
-                    noteUpEndEvent(voice, sample, noteNumber, noteChannel);
-                },
-                [&] (uint8_t noteNumber, uint8_t noteChannel) -> stringnote* { 
-                    stringnote *result = new stringnote();
-                    result->_freq = calcFrequency(noteNumber);
-                    return result;
-                },
-                // isVoiceStillActiveFunction
-                [&] (stringvoice *voice, stringnote *sample, uint8_t noteNumber, uint8_t noteChannel) -> bool {
-                    return false;
-                },
-                // isVoiceStillNoteDownFunction
-                [&] (stringvoice *voice, stringnote *sample, uint8_t noteNumber, uint8_t noteChannel) -> bool {
-                    return true;
-                })
+        polyphonicsampler<stringvoice, stringnote>(polyphony)
     {
     }
 
     stringsampler(const stringsampler&) = delete;
-    virtual ~stringsampler() {
-    }
+    
+    virtual ~stringsampler() {}
 
-    bool noteDownEvent(stringvoice *voice, stringnote *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool retrigger) {
+    virtual bool noteDownEventCallback(stringvoice *voice, stringnote *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t noteVelocity, bool retrigger){
         if (voice == nullptr)
             return false;
 
-        voice->_strings->noteOn(sample->_freq, velocity/255.0);
-        voice->_envelop->noteOn();
+        voice->_strings->noteOn(sample->_freq, noteVelocity/255.0);
+        if (voice->_envelop != nullptr)
+            voice->_envelop->noteOn();
+
         return true;
+    }
+
+    virtual void noteUpBeginEventCallback(stringvoice *voice, stringnote *sample, uint8_t noteNumber, uint8_t noteChannel) {
+        if (voice->_envelop != nullptr)
+            voice->_envelop->noteOff();
+    }
+
+    virtual void noteEndBeginEventCallback(stringvoice *voice, stringnote *sample, uint8_t noteNumber, uint8_t noteChannel) {
+        voice->_strings->noteOff(0);
+    }
+    
+    virtual bool isVoiceStillActive(stringvoice *voice, stringnote *sample, uint8_t noteNumber, uint8_t noteChannel)
+    {
+       return true;
+    }
+
+    virtual bool isVoiceStillNoteDown(stringvoice *voice, stringnote *sample, uint8_t noteNumber, uint8_t noteChannel) {
+        return true;
+    }
+
+    virtual stringnote* findSampleCallback(uint8_t noteNumber, uint8_t noteChannel) {
+        stringnote *result = new stringnote();
+        result->_freq = calcFrequency(noteNumber);
+        return result;
+    }
+
+    virtual triggertype findTriggerType(uint8_t noteNumber, uint8_t noteChannel) {
+        return _staticTriggerType;
     }
 
     void noteUpBeginEvent(stringvoice *voice, stringnote *sample, uint8_t noteNumber, uint8_t noteChannel) {
@@ -103,35 +107,12 @@ public:
         voice->_strings->noteOff(0);
     }
 
-    void turnOffAllNotesStillPlaying() {
-        _polysampler.turnOffAllNotesStillPlaying();
-    }
 
 private:
-    polyphonicsampler<stringvoice, stringnote> _polysampler;
     
     static float calcFrequency(uint8_t note) {
         float result = 440.0 * powf(2.0, (note-69) / 12.0);
         return result;
-    }
-
-    void noteEventCallback(stringvoice *voice, stringnote *note, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn, bool retrigger)
-    {
-        if (voice != nullptr) {
-            if (isNoteOn) {
-                float freq = calcFrequency(noteNumber);
-
-                if (voice->_envelop != nullptr) {
-                    voice->_envelop->noteOn();
-                }
-                voice->_strings->noteOn(freq, velocity / 255.0);
-            } else {
-                // Note off event
-                if (voice->_envelop != nullptr) {
-                    voice->_envelop->noteOff();
-                }
-            }
-        }
     }
 };
 

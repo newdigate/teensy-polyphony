@@ -68,14 +68,7 @@ namespace newdigate
             samplermodel<sdsampleplayernote> &samplermodel, 
             audiovoicepolyphonic<AudioPlaySdResmp> &polyphony
         ): 
-            audiosampler<AudioPlaySdResmp, sdsampleplayernote>(
-                polyphony, 
-                [&] (uint8_t noteNumber, uint8_t noteChannel) -> triggertype {
-                    sdsampleplayernote *sample = _samplermodel.getNoteForChannelAndKey(noteChannel, noteNumber);
-                    if (sample == nullptr)
-                        return triggertype::triggertype_play_while_notedown;
-                    return sample->_triggertype;
-                }),
+            audiosampler<AudioPlaySdResmp, sdsampleplayernote>(polyphony),
             _samplermodel(samplermodel),
             _currentId(0),
             _currentIndicatorId(0) 
@@ -87,7 +80,7 @@ namespace newdigate
         virtual ~MyLoopSampler() {
         }
 
-        bool voiceOnEvent(AudioPlaySdResmp *voice, sdsampleplayernote *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override {
+        bool voiceOnEvent(AudioPlaySdResmp *voice, sdsampleplayernote *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool retrigger) override {
             if (voice == nullptr || sample == nullptr || sample->_filename == nullptr)
                 return false;
 
@@ -151,12 +144,15 @@ namespace newdigate
             }
         }
 
-        bool voiceRetriggerEvent(AudioPlaySdResmp *voice, sdsampleplayernote *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity) override {
-            return true;
+        sdsampleplayernote* findSampleCallback(uint8_t noteNumber, uint8_t noteChannel) override {
+            return _samplermodel.getNoteForChannelAndKey(noteChannel, noteNumber);
         }
 
-        sdsampleplayernote* findSample(uint8_t noteNumber, uint8_t noteChannel) override {
-            return _samplermodel.getNoteForChannelAndKey(noteChannel, noteNumber);
+        triggertype findTriggerType(uint8_t noteNumber, uint8_t noteChannel) override {
+            sdsampleplayernote *sample = _samplermodel.getNoteForChannelAndKey(noteChannel, noteNumber);
+            if (sample == nullptr)
+                return triggertype::triggertype_play_while_notedown;
+            return sample->_triggertype;
         }
 
         unsigned int registerProgressCallback(uint8_t noteNumber, uint8_t noteChannel, char *filename, unsigned int resolution, CallbackFn callback) {
@@ -269,10 +265,6 @@ namespace newdigate
             }
         }
 
-        void update() {
-             audiosampler<AudioPlaySdResmp, sdsampleplayernote>::update(); 
-        }
-
         void updateProgressRegistration(ProgressIndictation *reg) {
             if  (reg->_voice.isPlaying() ) {
                 int bufferPosition = reg->_voice.getBufferPosition1();
@@ -284,7 +276,6 @@ namespace newdigate
                 }
             };
         }
-
 
     protected:
         samplermodel<sdsampleplayernote> &_samplermodel;
