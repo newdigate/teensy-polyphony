@@ -252,17 +252,6 @@ class samplermodel {
         std::map<uint8_t, std::map<uint8_t, TSample*>*> _channelNotes;
 };
 
-template <typename TVoice, typename TSample>
-struct notetocomplete
-{
-public:
-    audiovoice<TVoice> *voice = nullptr;
-    TSample *sample = nullptr;
-    uint8_t noteNumber = 0;
-    uint8_t noteChannel = 0;
-    /* data */
-};
-
 template<typename TVoice, typename TSample>
 class audiosampler : public polyphonicsampler<audiovoice<TVoice>, TSample>   {
 public:
