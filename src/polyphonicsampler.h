@@ -27,6 +27,7 @@
 #include <Arduino.h>
 #include <functional>
 #include <map>
+#include <mutex>
 #include "polyphonic.h"
 #include "loopsamplerenums.h"
 
@@ -45,10 +46,123 @@ class activenote {
         bool _noteOffRecieved = false;
 };
 
+template <typename TMappingType>
+class channelNoteMapping {
+public:
+    typedef std::map<uint8_t, std::map<uint8_t, std::vector<TMappingType*>*>*> TChannelNoteMapType;
+
+    channelNoteMapping() : 
+        _activeNotesPerChannel(),
+        io_mutex()
+    {
+    }
+
+    channelNoteMapping(const channelNoteMapping&) = delete;
+
+    virtual ~channelNoteMapping() {
+    }
+
+    TMappingType* findFirst(uint8_t noteNumber, uint8_t noteChannel) {
+        std::lock_guard<std::mutex> lock(io_mutex);
+
+        if (_activeNotesPerChannel.find(noteChannel) != _activeNotesPerChannel.end()  ) {
+            std::map<uint8_t, std::vector<TMappingType*>*> *activeNotesForChannel = _activeNotesPerChannel[noteChannel];
+
+            if (  (*activeNotesForChannel).find(noteNumber) != (*activeNotesForChannel).end()  ) {
+
+                std::vector<TMappingType*> *activeNotes = (*activeNotesForChannel)[noteNumber];
+                if (activeNotes->size() > 0)
+                    return (*activeNotes)[0];
+            }
+        }
+        return nullptr;
+    }
+    
+    void add(TMappingType *activeNote, uint8_t noteNumber, uint8_t noteChannel ) {
+        if (activeNote == nullptr)
+            return;
+
+        std::lock_guard<std::mutex> lock(io_mutex);
+
+        std::map<uint8_t, std::vector<TMappingType*>*> *activeNotesForChannel = nullptr;
+        if (_activeNotesPerChannel.find(noteChannel) == _activeNotesPerChannel.end()  ) {
+            activeNotesForChannel = new std::map<uint8_t, std::vector<TMappingType*>*>();
+            _activeNotesPerChannel[noteChannel] = activeNotesForChannel;
+        } else 
+        {
+            activeNotesForChannel = _activeNotesPerChannel[noteChannel];
+        }
+
+        std::vector<TMappingType*> *activeNotesForChannelAndKey = nullptr;
+        if ((*activeNotesForChannel).find(noteNumber) == (*activeNotesForChannel).end()  ) {
+             activeNotesForChannelAndKey = new std::vector<TMappingType*>();
+            (*activeNotesForChannel)[noteNumber] = activeNotesForChannelAndKey;
+        } else{
+            activeNotesForChannelAndKey = (*activeNotesForChannel)[noteNumber];
+        }
+
+        activeNotesForChannelAndKey->push_back(activeNote);
+    }
+
+    void remove(TMappingType *activeNote, uint8_t noteNumber, uint8_t noteChannel ) {
+        std::lock_guard<std::mutex> lock(io_mutex);
+
+        if (_activeNotesPerChannel.find(noteChannel) != _activeNotesPerChannel.end()  ) {
+            std::map<uint8_t, std::vector<TMappingType*>*> *activeNotesForChannel = _activeNotesPerChannel[noteChannel];
+            if (  (*activeNotesForChannel).find(noteNumber) != (*activeNotesForChannel).end()  ) {
+                std::vector<TMappingType*> *activeNotes = (*activeNotesForChannel)[noteNumber];
+                activeNotes->erase(
+                    std::remove(
+                        activeNotes->begin(), 
+                        activeNotes->end(), 
+                        activeNote), 
+                    activeNotes->end());
+                return;
+            }
+        }
+    }
+
+    void getActiveChannels( std::vector<uint8_t> &vec ) {
+        std::lock_guard<std::mutex> lock(io_mutex);
+        for (auto && activeNote : _activeNotesPerChannel) {
+            vec.push_back(activeNote.first);
+        }
+    }
+
+    void getActiveNotesForChannel(uint8_t noteChannel, std::vector<uint8_t> &vec) {
+        std::lock_guard<std::mutex> lock(io_mutex);
+
+        if (_activeNotesPerChannel.find(noteChannel) != _activeNotesPerChannel.end()  ) {
+            std::map<uint8_t, std::vector<TMappingType*>*> *activeNotesForChannel = _activeNotesPerChannel[noteChannel];
+
+            for (auto && activeNote : *(activeNotesForChannel) ) {
+                vec.push_back(activeNote.first);
+            }
+        }
+    }
+
+    void getActiveNotesForChannelAndNote(uint8_t noteChannel, uint8_t noteNumber, std::vector<TMappingType*> &vec) {
+        std::lock_guard<std::mutex> lock(io_mutex);
+        
+        if (_activeNotesPerChannel.find(noteChannel) != _activeNotesPerChannel.end()  ) {
+            std::map<uint8_t, std::vector<TMappingType*>*> *activeNotesForChannel = _activeNotesPerChannel[noteChannel];
+            if (  (*activeNotesForChannel).find(noteNumber) != (*activeNotesForChannel).end()  ) {
+                std::vector<TMappingType*> *activeNotes = (*activeNotesForChannel)[noteNumber];
+                for (auto && activeNote : *(activeNotes) ) {
+                    vec.push_back(activeNote);
+                }
+            }
+        }
+    }
+
+private:
+    TChannelNoteMapType         _activeNotesPerChannel;
+    std::mutex                  io_mutex;
+};
+
 template <typename TVoice, typename TSample>
 class polyphonicsampler {
 public:
-    typedef std::map<uint8_t, std::map<uint8_t, std::vector<activenote<TVoice, TSample>*>*>*> ActiveNotesChannelKeyMap;
 
     polyphonicsampler(polyphonic<TVoice>      &polyphony) : 
         _polyphony(polyphony),
@@ -69,6 +183,10 @@ public:
     }
 
     polyphonicsampler(const polyphonicsampler&) = delete;
+
+    virtual ~polyphonicsampler() {
+
+    }
 
     void preprocessNote(uint8_t noteNumber, uint8_t noteChannel, bool isNoteOn, uint8_t velocity = 127)
     {
@@ -211,14 +329,59 @@ public:
     }
 
     void turnOffAllNotesStillPlaying() {
-        for (auto && activeNotesForChannel : _activeNotesPerChannel){
-            for (auto && activeNote : (*(activeNotesForChannel.second))) {
-                noteOff(activeNote.first, activeNotesForChannel.first, activeNote);
+        std::vector<uint8_t> channels;
+         _activeNotesPerChannel.getActiveChannels(channels);
+
+        for (auto && noteChannel : channels){
+            std::vector<uint8_t> notes;
+            _activeNotesPerChannel.getActiveNotesForChannel(noteChannel, notes);
+
+            for (auto && noteNumber : notes) {
+                std::vector<activenote<TVoice, TSample>> activeNotes;
+                _activeNotesPerChannel.getActiveNotesForChannelAndNote(noteChannel, noteNumber, activeNotes);
+                for (auto && activeNote : activeNotes) {
+                    noteOff(noteNumber, noteChannel, activeNote);
+                }
             }
         }
     }
 
     virtual void update() {
+
+        std::vector<uint8_t> channels;
+         _activeNotesPerChannel.getActiveChannels(channels);
+
+        std::vector<activenote<TVoice, TSample>*> activeNotesToDispose;
+
+        for (auto && noteChannel : channels){
+            std::vector<uint8_t> notes;
+            _activeNotesPerChannel.getActiveNotesForChannel(noteChannel, notes);
+
+            for (auto && noteNumber : notes) {
+                std::vector<activenote<TVoice, TSample>*> activeNotes;
+                _activeNotesPerChannel.getActiveNotesForChannelAndNote(noteChannel, noteNumber, activeNotes);
+                for (auto && activeNote : activeNotes) {
+
+                    if (!activeNote->_noteOffRecieved) {
+                        if (!isVoiceStillNoteDown(activeNote->_voice, activeNote->_sample, noteNumber, noteChannel)){
+                            noteUpBeginEventCallback(activeNote->_voice, activeNote->_sample, noteNumber, noteChannel);
+                            activeNote->_noteOffRecieved = true;
+                            return;
+                        }
+                    } else
+                    {                        
+                        if (!isVoiceStillActive(activeNote->_voice, activeNote->_sample, noteNumber, noteChannel)){
+                            noteUpEndEventCallback(activeNote->_voice, activeNote->_sample, noteNumber, noteChannel);
+                            _activeNotesPerChannel.remove(activeNote, noteNumber, noteChannel);
+                            delete activeNote;
+                            return;
+                        }
+                    }                
+                }
+            }
+        }
+
+/*
         for (auto && activenotesForChannel : _activeNotesPerChannel){
             for (auto && activenotesForChannelAndKey : *(activenotesForChannel.second)) {
                 
@@ -230,27 +393,13 @@ public:
                             activenotesForChannelAndKey.second->end(), 
                             activeNote), 
                         activenotesForChannelAndKey.second->end());
-                        delete activeNote;
                         return;
                     }
-                    if (!activeNote->_noteOffRecieved) {
-                        if (!isVoiceStillNoteDown(activeNote->_voice, activeNote->_sample, activenotesForChannelAndKey.first, activenotesForChannel.first)){
-                            noteUpBeginEventCallback(activeNote->_voice, activeNote->_sample, activenotesForChannelAndKey.first, activenotesForChannel.first);
-                            activeNote->_noteOffRecieved = true;
-                            return;
-                        }
-                    } else
-                    {                        
-                        if (!isVoiceStillActive(activeNote->_voice, activeNote->_sample, activenotesForChannelAndKey.first, activenotesForChannel.first)){
-                            noteUpEndEventCallback(activeNote->_voice, activeNote->_sample, activenotesForChannelAndKey.first, activenotesForChannel.first);
-                            activenotesForChannelAndKey.second->erase(std::remove(activenotesForChannelAndKey.second->begin(), activenotesForChannelAndKey.second->end(), activeNote), activenotesForChannelAndKey.second->end());
-                            delete activeNote;
-                            return;
-                        }
-                    }
+
                 }
             }
         }
+        */
     }
 
     virtual bool noteDownEventCallback(TVoice *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t noteVelocity, bool retrigger){
@@ -284,40 +433,18 @@ public:
 
 protected:
     polyphonic<TVoice>          &_polyphony;
-    ActiveNotesChannelKeyMap    _activeNotesPerChannel;
     bool                        _useStaticTriggerType;
     triggertype                 _staticTriggerType = triggertype_play_while_notedown;
+    channelNoteMapping<activenote<TVoice, TSample>>          _activeNotesPerChannel;
 
     activenote<TVoice, TSample>* isNoteActive(uint8_t noteNumber, uint8_t noteChannel) {
-        if (_activeNotesPerChannel.find(noteChannel) != _activeNotesPerChannel.end()  ) {
-            std::map<uint8_t, std::vector<activenote<TVoice, TSample>*>*> *activeNotesForChannel = _activeNotesPerChannel[noteChannel];
-
-            if (  (*activeNotesForChannel).find(noteNumber) != (*activeNotesForChannel).end()  ) {
-
-                std::vector<activenote<TVoice, TSample>*> *activeNotes = (*activeNotesForChannel)[noteNumber];
-                if (activeNotes->size() > 0)
-                    return (*activeNotes)[0];
-            }
-        }
-        return nullptr;
+        return _activeNotesPerChannel.findFirst(noteNumber, noteChannel);
     }
     
     void addActiveNote(activenote<TVoice, TSample> *activeNote, uint8_t noteNumber, uint8_t noteChannel ) {
         if (activeNote == nullptr)
             return;
-
-        std::map<uint8_t, std::vector<activenote<TVoice, TSample>*>*> *activeNotesForChannel = _activeNotesPerChannel[noteChannel];
-        if (activeNotesForChannel == nullptr) {
-            activeNotesForChannel = new std::map<uint8_t, std::vector<activenote<TVoice, TSample>*>*>();
-            _activeNotesPerChannel[noteChannel] = activeNotesForChannel;
-        }
-
-        std::vector<activenote<TVoice, TSample>*> *activeNotesForChannelAndKey = (*activeNotesForChannel)[noteNumber];
-        if (activeNotesForChannelAndKey == nullptr)  {
-            activeNotesForChannelAndKey = new std::vector<activenote<TVoice, TSample>*>();
-            (*activeNotesForChannel)[noteNumber] = activeNotesForChannelAndKey;
-        }
-        activeNotesForChannelAndKey->push_back(activeNote);
+        _activeNotesPerChannel.add(activeNote, noteNumber, noteChannel);
     }
 };
 
