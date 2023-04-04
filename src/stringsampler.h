@@ -42,6 +42,10 @@ public:
 
     AudioEffectEnvelope *_envelop = nullptr;
     AudioSynthKarplusStrong *_strings = nullptr;
+
+    bool isPlaying() {
+        return true;
+    }
 };
 
 class stringnote {

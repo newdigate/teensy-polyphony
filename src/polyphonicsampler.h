@@ -372,6 +372,7 @@ public:
                     {                        
                         if (!isVoiceStillActive(activeNote->_voice, activeNote->_sample, noteNumber, noteChannel)){
                             noteUpEndEventCallback(activeNote->_voice, activeNote->_sample, noteNumber, noteChannel);
+                            _polyphony.freeVoice(activeNote->_voice);
                             _activeNotesPerChannel.remove(activeNote, noteNumber, noteChannel);
                             delete activeNote;
                             return;
