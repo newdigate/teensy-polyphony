@@ -337,7 +337,7 @@ public:
             _activeNotesPerChannel.getActiveNotesForChannel(noteChannel, notes);
 
             for (auto && noteNumber : notes) {
-                std::vector<activenote<TVoice, TSample>> activeNotes;
+                std::vector<activenote<TVoice, TSample>*> activeNotes;
                 _activeNotesPerChannel.getActiveNotesForChannelAndNote(noteChannel, noteNumber, activeNotes);
                 for (auto && activeNote : activeNotes) {
                     noteOff(noteNumber, noteChannel, activeNote);
