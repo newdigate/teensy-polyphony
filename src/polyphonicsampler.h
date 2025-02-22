@@ -26,117 +26,414 @@
 #include <cstdint>
 #include <Arduino.h>
 #include <functional>
-#define MAX_VOICES 16
+#include <map>
+#include <mutex>
+#include "polyphonic.h"
+#include "loopsamplerenums.h"
 
-//typedef void (*noteEventCallback)();
+enum activenotestate {
+    noteDown = 0,
+    noteUpReceived = 1,
+    noteComplete = 2
+};
 
-class polyphonicsampler {
+template <typename TVoice, typename TSample>
+class activenote {
+    public:
+        activenote(TVoice *voice, TSample *sample) : _voice(voice), _sample(sample) {}
+        TVoice *_voice;
+        TSample *_sample;
+        bool _noteOffRecieved = false;
+};
+
+template <typename TMappingType>
+class channelNoteMapping {
 public:
-    polyphonicsampler() : _numVoices(0) {
-        for (int i=0; i < 128; i++)
-          activeNotes[i] = 255;
+    typedef std::map<uint8_t, std::map<uint8_t, std::vector<TMappingType*>*>*> TChannelNoteMapType;
+
+    channelNoteMapping() : 
+        _activeNotesPerChannel()
+    {
     }
 
-    void setNumVoices(uint8_t numVoices) {
-        if (numVoices > _numVoices)
-            for (int i=_numVoices; i < numVoices; i++) {
-              activeVoices[i] = 255;
-              voice_noteOff[i] = 0;
-            }
-        else if (numVoices < _numVoices) {
-            for (int i=_numVoices; i > numVoices; i--) {
-              activeVoices[i] = 255;
-              voice_noteOff[i] = 0;
-            }
-        }
-        _numVoices = numVoices;
+    channelNoteMapping(const channelNoteMapping&) = delete;
+
+    virtual ~channelNoteMapping() {
     }
 
-    void noteOn(uint8_t noteNumber, uint8_t velocity, uint8_t noteChannel) {
-        int indexOfVoice = 255;
-        bool isretrigger = false;
-        if (activeNotes[noteNumber] == 255) {
-            // note is not active, allocate a voice if possible
-            indexOfVoice = getFirstFreeVoice();
-            if (indexOfVoice < _numVoices) {
-                activeVoices[indexOfVoice] = noteNumber;
-                activeNotes[noteNumber] = indexOfVoice;                
-            } else
-            {
-                // note dropped: insufficient polyphony to play this note
-                indexOfVoice = 255;
-                Serial.printf("Note dropped: %i \n", noteNumber);
-            }
-        } else {
-            // note is already active, just re-trigger it...
-            indexOfVoice = activeNotes[noteNumber];
-            isretrigger = true;
-        }
-        if (indexOfVoice != 255) {            
-            _noteEventFunction(indexOfVoice, noteNumber, noteChannel, velocity, true, isretrigger);
-            voice_noteOn[indexOfVoice] = millis();
-            Serial.printf("Voice %i plays note %i (%i, %i)\n", indexOfVoice, noteNumber, velocity, isretrigger);
-        }
-    }
+    TMappingType* findFirst(uint8_t noteNumber, uint8_t noteChannel) {
+        if (_activeNotesPerChannel.find(noteChannel) != _activeNotesPerChannel.end()  ) {
+            std::map<uint8_t, std::vector<TMappingType*>*> *activeNotesForChannel = _activeNotesPerChannel[noteChannel];
 
-    void noteOff(uint8_t noteNumber, uint8_t noteChannel) {
-        uint8_t index = activeNotes[noteNumber];
-        if (index == 255) {
-            // note is not active, ignore
+            if (  (*activeNotesForChannel).find(noteNumber) != (*activeNotesForChannel).end()  ) {
+
+                std::vector<TMappingType*> *activeNotes = (*activeNotesForChannel)[noteNumber];
+                if (activeNotes->size() > 0)
+                    return (*activeNotes)[0];
+            }
+        }
+        return nullptr;
+    }
+    
+    void add(TMappingType *activeNote, uint8_t noteNumber, uint8_t noteChannel ) {
+        if (activeNote == nullptr)
             return;
+
+        std::map<uint8_t, std::vector<TMappingType*>*> *activeNotesForChannel = nullptr;
+        if (_activeNotesPerChannel.find(noteChannel) == _activeNotesPerChannel.end()  ) {
+            activeNotesForChannel = new std::map<uint8_t, std::vector<TMappingType*>*>();
+            _activeNotesPerChannel[noteChannel] = activeNotesForChannel;
+        } else 
+        {
+            activeNotesForChannel = _activeNotesPerChannel[noteChannel];
         }
 
-        _noteEventFunction(index, noteNumber, 0, 0, false, false);
-        activeNotes[noteNumber] = 255;
-        activeVoices[index] = 255; // free the voice
-        voice_noteOff[index] = millis();
+        std::vector<TMappingType*> *activeNotesForChannelAndKey = nullptr;
+        if ((*activeNotesForChannel).find(noteNumber) == (*activeNotesForChannel).end()  ) {
+             activeNotesForChannelAndKey = new std::vector<TMappingType*>();
+            (*activeNotesForChannel)[noteNumber] = activeNotesForChannelAndKey;
+        } else{
+            activeNotesForChannelAndKey = (*activeNotesForChannel)[noteNumber];
+        }
+
+        activeNotesForChannelAndKey->push_back(activeNote);
     }
 
-    void setNoteEventCallback (std::function<void(uint8_t voice, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn, bool retrigger)> noteEventFunction) {
-        _noteEventFunction =  noteEventFunction;
+    void remove(TMappingType *activeNote, uint8_t noteNumber, uint8_t noteChannel ) {
+        if (_activeNotesPerChannel.find(noteChannel) != _activeNotesPerChannel.end()  ) {
+            std::map<uint8_t, std::vector<TMappingType*>*> *activeNotesForChannel = _activeNotesPerChannel[noteChannel];
+            if (  (*activeNotesForChannel).find(noteNumber) != (*activeNotesForChannel).end()  ) {
+                std::vector<TMappingType*> *activeNotes = (*activeNotesForChannel)[noteNumber];
+                activeNotes->erase(
+                    std::remove(
+                        activeNotes->begin(), 
+                        activeNotes->end(), 
+                        activeNote), 
+                    activeNotes->end());
+                return;
+            }
+        }
     }
 
-    void turnOffAllNotesStillPlaying() {
-        Serial.printf("turn off all notes: (%d)\n", _numVoices);
-        for (int i=0; i<_numVoices; i++) {
-            if (activeVoices[i] != 255) {
-                Serial.printf("turn off %d\n",activeVoices[i]);
-                noteOff(activeVoices[i], 0);
+    void getActiveChannels( std::vector<uint8_t> &vec ) {
+        for (auto && activeNote : _activeNotesPerChannel) {
+            vec.push_back(activeNote.first);
+        }
+    }
+
+    void getActiveNotesForChannel(uint8_t noteChannel, std::vector<uint8_t> &vec) {
+
+        if (_activeNotesPerChannel.find(noteChannel) != _activeNotesPerChannel.end()  ) {
+            std::map<uint8_t, std::vector<TMappingType*>*> *activeNotesForChannel = _activeNotesPerChannel[noteChannel];
+
+            for (auto && activeNote : *(activeNotesForChannel) ) {
+                vec.push_back(activeNote.first);
+            }
+        }
+    }
+
+    void getActiveNotesForChannelAndNote(uint8_t noteChannel, uint8_t noteNumber, std::vector<TMappingType*> &vec) {
+        if (_activeNotesPerChannel.find(noteChannel) != _activeNotesPerChannel.end()  ) {
+            std::map<uint8_t, std::vector<TMappingType*>*> *activeNotesForChannel = _activeNotesPerChannel[noteChannel];
+            if (  (*activeNotesForChannel).find(noteNumber) != (*activeNotesForChannel).end()  ) {
+                std::vector<TMappingType*> *activeNotes = (*activeNotesForChannel)[noteNumber];
+                for (auto && activeNote : *(activeNotes) ) {
+                    vec.push_back(activeNote);
+                }
             }
         }
     }
 
 private:
-    std::function<void(uint8_t voice, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn, bool retrigger)>  _noteEventFunction;
+    TChannelNoteMapType         _activeNotesPerChannel;
+};
 
-    uint8_t activeNotes[128];
-    uint8_t activeVoices[MAX_VOICES];
-    uint8_t _numVoices;
-    unsigned long voice_noteOff[MAX_VOICES] {0};
-    unsigned long voice_noteOn[MAX_VOICES] {0};
+template <typename TVoice, typename TSample>
+class polyphonicsampler {
+public:
 
-    uint8_t getFirstFreeVoice() {
-        unsigned long leastRecentNoteOffEvent = UINT32_MAX;
-        uint8_t indexOfVoiceWithLeastRecentNoteOff = 255;
-        for (int i=0; i < _numVoices; i++) {
-            if (activeVoices[i] == 255) {
-                if (voice_noteOff[i] < leastRecentNoteOffEvent) {
-                    leastRecentNoteOffEvent = voice_noteOff[i];
-                    indexOfVoiceWithLeastRecentNoteOff = i;
+    polyphonicsampler(polyphonic<TVoice>      &polyphony) : 
+        _polyphony(polyphony),
+        _activeNotesPerChannel(),
+        _useStaticTriggerType(false),
+        _staticTriggerType(triggertype::triggertype_play_while_notedown)
+    {
+    }
+
+    polyphonicsampler(
+            polyphonic<TVoice>      &polyphony, 
+            triggertype             trigger) : 
+        _polyphony(polyphony),
+        _activeNotesPerChannel(),
+        _useStaticTriggerType(true),
+        _staticTriggerType(trigger)
+    {
+    }
+
+    polyphonicsampler(const polyphonicsampler&) = delete;
+
+    virtual ~polyphonicsampler() {
+
+    }
+
+    void preprocessNote(uint8_t noteNumber, uint8_t noteChannel, bool isNoteOn, uint8_t velocity = 127)
+    {
+        if (isNoteOn)
+            preprocessNoteOn(noteNumber, velocity, noteChannel);
+        else
+            preprocessNoteOff(noteNumber, noteChannel);
+    }
+
+    void preprocessNoteOn(uint8_t noteNumber, uint8_t velocity, uint8_t noteChannel) {
+        triggertype trigger = _staticTriggerType;
+        if (!_useStaticTriggerType) {
+            trigger = findTriggerType(noteNumber, noteChannel);
+        } 
+        noteDown(noteNumber, velocity, noteChannel, trigger);
+    }
+
+    void preprocessNoteOff(uint8_t noteNumber, uint8_t noteChannel) {
+        triggertype trigger = _staticTriggerType;
+        if (!_useStaticTriggerType) {
+            trigger = findTriggerType(noteNumber, noteChannel);
+        }
+        noteUp(noteNumber, noteChannel, trigger);
+    }
+
+    void noteDown(uint8_t noteNumber, uint8_t velocity, uint8_t noteChannel, triggertype trigger) {
+        switch (trigger) {
+            case triggertype_play_until_end : {
+                TVoice* voice = _polyphony.useVoice();
+                
+                if (voice != nullptr) {    
+                    TSample *sample = findSampleCallback(noteNumber, noteChannel);
+                    activenote<TVoice, TSample> *activeNote = new activenote<TVoice, TSample>(voice, sample);                 
+                    if (noteOn(noteNumber, velocity, noteChannel, voice, sample))
+                        addActiveNote(activeNote, noteNumber, noteChannel);
+                    else {
+                        _polyphony.freeVoice(voice);
+                        delete activeNote;
+                    }
+                } 
+            }           
+            break;
+
+            case triggertype_play_while_notedown : {
+                TVoice *voice = nullptr;
+                TSample *sample = nullptr;
+                bool isretrigger = false;
+                activenote<TVoice, TSample> *activeNote = isNoteActive(noteNumber, noteChannel);
+                bool newVoiceUsed = false;
+                if (activeNote == nullptr) {
+                    // note is not active, allocate a voice if possible
+                    voice = _polyphony.useVoice();
+                    if (voice != nullptr) {
+                        newVoiceUsed = true;
+                        sample = findSampleCallback(noteNumber, noteChannel);
+                        activeNote = new activenote<TVoice, TSample>(voice, sample);
+                    }
+                } else {
+                    // note is already active, just re-trigger it...
+                    voice = activeNote->_voice;
+                    sample = activeNote->_sample;
+                    isretrigger = true;
+                }
+                
+                if (activeNote != nullptr) {
+                    bool success = noteOn(noteNumber, velocity, noteChannel, voice, sample, isretrigger);
+                    if (success)
+                        addActiveNote(activeNote, noteNumber, noteChannel);
+                    else {
+                        if (newVoiceUsed)
+                            _polyphony.freeVoice(voice);
+                        delete activeNote;
+                    }
+                } 
+            }
+            break;
+
+            case triggertype_play_until_subsequent_notedown: {
+                activenote<TVoice, TSample>* activeNote = isNoteActive(noteNumber, noteChannel);
+                if (activeNote) {
+                    noteOff(noteNumber, noteChannel, activeNote);  
+                } else {
+                    TVoice *voice = _polyphony.useVoice();
+                    if (voice != nullptr) {
+                        TSample *sample = findSampleCallback(noteNumber, noteChannel);
+                        activeNote = new activenote<TVoice, TSample>(voice, sample);
+                        
+                        if (noteOn(noteNumber, velocity, noteChannel, voice, sample)) {
+                            addActiveNote(activeNote, noteNumber, noteChannel);
+                        } else {
+                            _polyphony.freeVoice(voice);
+                            delete activeNote;
+                        }
+                    }
+                }
+            }
+            break;
+
+            default: break;
+        }
+    }
+
+    void noteUp(uint8_t noteNumber, uint8_t noteChannel, triggertype trigger) {
+        switch (trigger) {
+            case triggertype_play_until_end :
+            case triggertype_play_until_subsequent_notedown :
+            break;
+            
+            case triggertype_play_while_notedown :
+            {   
+                activenote<TVoice, TSample>* activenote = isNoteActive(noteNumber, noteChannel);
+                noteOff(noteNumber, noteChannel, activenote);
+                break;
+            }
+
+            default: break;
+        }
+    }
+
+    bool noteOn(uint8_t noteNumber, uint8_t velocity, uint8_t noteChannel, TVoice* voice, TSample *sample, bool isretrigger = false) {
+        if (voice != nullptr) {            
+            return noteDownEventCallback(voice, sample, noteNumber, noteChannel, velocity, isretrigger);
+        }
+        return false;
+    }
+
+    void noteOff(uint8_t noteNumber, uint8_t noteChannel) {
+        activenote<TVoice, TSample>* activeNote = isNoteActive(noteNumber, noteChannel);
+        if (activeNote == nullptr)
+            return;
+
+        noteOff(noteNumber, noteChannel, activeNote);
+    }
+
+    void noteOff(uint8_t noteNumber, uint8_t noteChannel, activenote<TVoice, TSample>* activeNote) {
+        if (activeNote == nullptr)
+            return;
+
+        noteUpBeginEventCallback(activeNote->_voice, activeNote->_sample, noteNumber, noteChannel);
+    }
+
+    void turnOffAllNotesStillPlaying() {
+        std::vector<uint8_t> channels;
+         _activeNotesPerChannel.getActiveChannels(channels);
+
+        for (auto && noteChannel : channels){
+            std::vector<uint8_t> notes;
+            _activeNotesPerChannel.getActiveNotesForChannel(noteChannel, notes);
+
+            for (auto && noteNumber : notes) {
+                std::vector<activenote<TVoice, TSample>*> activeNotes;
+                _activeNotesPerChannel.getActiveNotesForChannelAndNote(noteChannel, noteNumber, activeNotes);
+                for (auto && activeNote : activeNotes) {
+                    noteOff(noteNumber, noteChannel, activeNote);
                 }
             }
         }
-        if (indexOfVoiceWithLeastRecentNoteOff == 0xff) {
-            // all voices are in use... return the voice with least recent note off
-            unsigned long leastRecentNoteOnEvent = UINT32_MAX;
-            for (int i=0; i < _numVoices; i++) {
-                if (voice_noteOn[i] < leastRecentNoteOffEvent) {
-                    leastRecentNoteOffEvent = voice_noteOn[i];
-                    indexOfVoiceWithLeastRecentNoteOff = i;
+    }
+
+    virtual void update() {
+
+        std::vector<uint8_t> channels;
+         _activeNotesPerChannel.getActiveChannels(channels);
+
+        std::vector<activenote<TVoice, TSample>*> activeNotesToDispose;
+
+        for (auto && noteChannel : channels){
+            std::vector<uint8_t> notes;
+            _activeNotesPerChannel.getActiveNotesForChannel(noteChannel, notes);
+
+            for (auto && noteNumber : notes) {
+                std::vector<activenote<TVoice, TSample>*> activeNotes;
+                _activeNotesPerChannel.getActiveNotesForChannelAndNote(noteChannel, noteNumber, activeNotes);
+                for (auto && activeNote : activeNotes) {
+
+                    if (!activeNote->_noteOffRecieved) {
+                        if (!isVoiceStillNoteDown(activeNote->_voice, activeNote->_sample, noteNumber, noteChannel)){
+                            noteUpBeginEventCallback(activeNote->_voice, activeNote->_sample, noteNumber, noteChannel);
+                            activeNote->_noteOffRecieved = true;
+                            return;
+                        }
+                    } else
+                    {                        
+                        if (!isVoiceStillActive(activeNote->_voice, activeNote->_sample, noteNumber, noteChannel)){
+                            noteUpEndEventCallback(activeNote->_voice, activeNote->_sample, noteNumber, noteChannel);
+                            _polyphony.freeVoice(activeNote->_voice);
+                            _activeNotesPerChannel.remove(activeNote, noteNumber, noteChannel);
+                            delete activeNote;
+                            return;
+                        }
+                    }                
                 }
             }
         }
-        return indexOfVoiceWithLeastRecentNoteOff;
+
+/*
+        for (auto && activenotesForChannel : _activeNotesPerChannel){
+            for (auto && activenotesForChannelAndKey : *(activenotesForChannel.second)) {
+                
+                for (auto && activeNote : *(activenotesForChannelAndKey.second)) {
+                    if (activeNote->_voice == nullptr) {
+                        // not sure how we're getting null voices????
+                        activenotesForChannelAndKey.second->erase(
+                            std::remove(activenotesForChannelAndKey.second->begin(), 
+                            activenotesForChannelAndKey.second->end(), 
+                            activeNote), 
+                        activenotesForChannelAndKey.second->end());
+                        return;
+                    }
+
+                }
+            }
+        }
+        */
+    }
+
+    virtual bool noteDownEventCallback(TVoice *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t noteVelocity, bool retrigger){
+        return false;
+    }
+
+    virtual void noteUpBeginEventCallback(TVoice *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel) {
+
+    }
+
+    virtual void noteUpEndEventCallback(TVoice *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel) {
+
+    }
+    
+    virtual bool isVoiceStillActive(TVoice *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel)
+    {
+        return true;
+    }
+
+    virtual bool isVoiceStillNoteDown(TVoice *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel) {
+        return true;
+    }
+
+    virtual TSample* findSampleCallback(uint8_t noteNumber, uint8_t noteChannel) {
+        return nullptr;
+    }
+
+    virtual triggertype findTriggerType(uint8_t noteNumber, uint8_t noteChannel) {
+        return _staticTriggerType;
+    };
+
+protected:
+    polyphonic<TVoice>          &_polyphony;
+    bool                        _useStaticTriggerType;
+    triggertype                 _staticTriggerType = triggertype_play_while_notedown;
+    channelNoteMapping<activenote<TVoice, TSample>>          _activeNotesPerChannel;
+
+    activenote<TVoice, TSample>* isNoteActive(uint8_t noteNumber, uint8_t noteChannel) {
+        return _activeNotesPerChannel.findFirst(noteNumber, noteChannel);
+    }
+    
+    void addActiveNote(activenote<TVoice, TSample> *activeNote, uint8_t noteNumber, uint8_t noteChannel ) {
+        if (activeNote == nullptr)
+            return;
+        _activeNotesPerChannel.add(activeNote, noteNumber, noteChannel);
     }
 };
 

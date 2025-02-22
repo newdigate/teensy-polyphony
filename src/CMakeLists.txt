@@ -5,23 +5,18 @@ project(teensypolyphony C CXX)
 set(SOURCE_FILES
 		sampler.cpp
 		stringsampler.cpp
-		polyphonicsampler.cpp
-		playcontroller/sampleplaymidicontroller.cpp
-		loopsampler.cpp)
+		polyphonicsampler.cpp)
 
 set(HEADER_FILES
+		audiovoicepolyphonic.h
 		sampler.h
 		stringsampler.h
 		polyphonicsampler.h
+		polyphonic.h
 		TeensyPolyphony.h
-		playcontroller/sampleplaymidicontroller.h
-		playcontroller/sampleplaymidicontrollerenums.h
-		playcontroller/abstractdisplay.h
-		playcontroller/serialdisplay.h
-		playcontroller/st7735display.h
-		playcontroller/extracolors.h
-		loopsampler.h
-		loopsamplerenums.h)
+		loopsamplerenums.h
+		MySampler.h
+		sdsampleplayernote.h)
 
 if (NOT DEFINED TEENSY_VERSION)
 	include(CMakeLists.linux.cmake)

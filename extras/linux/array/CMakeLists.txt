@@ -1,25 +1,13 @@
 cmake_minimum_required(VERSION 3.10)
 project(array)
-set(CMAKE_CXX_STANDARD 14)
-
-find_package(teensy_x86_stubs)
-include_directories(${teensy_x86_stubs_INCLUDE_DIR})
-
-find_package(teensy_audio_x86_stubs)
-include_directories(${teensy_audio_x86_stubs_INCLUDE_DIR})
-
-find_package(teensy_x86_sd_stubs)
-include_directories(${teensy_x86_sd_stubs_INCLUDE_DIR})
-
-find_package(teensy_variable_playback)
-include_directories(${teensy_variable_playback_INCLUDE_DIR})
+set(CMAKE_CXX_STANDARD 17)
 
 include_directories(../../../src)
 
 add_executable(array array.cpp)
 
-target_link_libraries(array ${teensy_variable_playback_LIBS})
-target_link_libraries(array ${teensy_audio_x86_stubs_LIBS})
-target_link_libraries(array ${teensy_x86_sd_stubs_LIBS})
-target_link_libraries(array ${teensy_x86_stubs_LIBS})
+target_link_libraries(array teensy_variable_playback)
+target_link_libraries(array teensy_audio_x86_stubs)
+target_link_libraries(array teensy_x86_sd_stubs)
+target_link_libraries(array teensy_x86_stubs)
 

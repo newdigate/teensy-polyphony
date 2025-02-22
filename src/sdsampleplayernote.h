@@ -20,9 +20,25 @@
  * THE SOFTWARE.
  */
 
-#ifndef TEENSY_AUDIO_SAMPLER_EXTRACOLORS_H
-#define TEENSY_AUDIO_SAMPLER_EXTRACOLORS_H
+#ifndef TEENSY_AUDIO_SAMPLER_SDSAMPLEPLAYERNOTE_H
+#define TEENSY_AUDIO_SAMPLER_SDSAMPLEPLAYERNOTE_H
 
-#define ST77XX_COLOR_BRITISHRACINGGREEN 0x0204
-#define ST77XX_COLOR_VIOLET 0x598A
-#endif // TEENSY_AUDIO_SAMPLER_EXTRACOLORS_H
+#include <Audio.h>
+#include <TeensyVariablePlayback.h>
+#include "loopsamplerenums.h"
+
+//template <typename TAudioPlay>
+class sdsampleplayernote {
+public:
+    char * _filename = nullptr;
+    uint8_t _samplerNoteNumber = 0;    
+    uint8_t _samplerNoteChannel = 0;    
+    //TAudioPlay *_voice = nullptr;
+    bool isPlaying = false;
+    triggertype _triggertype = triggertype::triggertype_play_until_subsequent_notedown;
+    playlooptype _playlooptype = playlooptype::playlooptype_once;
+    playdirection _playdirection = playdirection::playdirection_begin_forward;
+
+};
+
+#endif // TEENSY_AUDIO_SAMPLER_SDSAMPLEPLAYERNOTE_H

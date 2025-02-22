@@ -5,7 +5,7 @@
 #include <TeensyVariablePlayback.h>
 #include "USBHost_t36.h"
 #include <ST7735_t3.h>
-#include "playcontroller/st7735display.h"
+#include "MySampler.h"
 
 USBHost myusb;
 MIDIDevice midi1(myusb);
@@ -39,16 +39,19 @@ AudioControlCS42448      audioShield;
 #define TFT_RST   -1    // RST can use any pin
 
 ST7735_t3 tft = ST7735_t3(TFT_CS, TFT_DC, TFT_RST);
+samplermodel<sdsampleplayernote> model;
+audiovoicepolyphonic<AudioPlaySdResmp> polyphony;
+newdigate::MyLoopSampler              sampler(model, polyphony);
 
-loopsampler              _sampler;
-ST7735Display            _st7735display(tft);
-sdsampleplayermidicontroller _controller(_sampler, _st7735display);
-AudioPlaySdResmp         *_voices[NUM_VOICES] = {&playSdWav1, &playSdWav2, &playSdWav3, &playSdWav4};
+audiovoice<AudioPlaySdResmp>         *_voices[NUM_VOICES] = {
+        new audiovoice<AudioPlaySdResmp>(&playSdWav1),
+        new audiovoice<AudioPlaySdResmp>(&playSdWav2),
+        new audiovoice<AudioPlaySdResmp>(&playSdWav3),
+        new audiovoice<AudioPlaySdResmp>(&playSdWav4)
+};
 
 void handleNoteOn(byte channel, byte pitch, byte velocity);
 void handleNoteOff(byte channel, byte pitch, byte velocity);
-void handleControlChange(byte channel, byte data1, byte data2);
-void printUsage();
 
 void setup() {
 
@@ -69,52 +72,19 @@ void setup() {
 
     midi1.setHandleNoteOff(handleNoteOff);
     midi1.setHandleNoteOn(handleNoteOn);
-    midi1.setHandleControlChange(handleControlChange);
 
-    _sampler.addVoices(_voices, NUM_VOICES);
-
-    _controller.begin();
+    polyphony.addVoices(_voices, NUM_VOICES);
 }
 
 void loop() {
   myusb.Task();
   midi1.read();
-  if (Serial.available()) {
-        String s = Serial.readString();
-        if (s == "r\n") {
-            Serial.println("reset...");
-            _controller.initialize();
-        } else if (s == "l\n") {
-            Serial.println("loading samples...");
-            _controller.loadSamples("samples.smp");
-        } else if (s == "s\n") {
-            Serial.println("saving samples...");
-            _controller.writeSamples("samples.smp");
-        } else {
-            Serial.printf("unknown input: %s\r\n", s.c_str());
-            printUsage();
-        }
-    }
 }
 
 void handleNoteOn(byte channel, byte pitch, byte velocity) {
-  _controller.midiChannleVoiceMessage(0x90, pitch, velocity, channel);
+    sampler.trigger(pitch, channel, velocity, true);
 }
 
 void handleNoteOff(byte channel, byte pitch, byte velocity) {
-  _controller.midiChannleVoiceMessage(0x80, pitch, velocity, channel);
-}
-
-void handleControlChange(byte channel, byte data1, byte data2) {
-  _controller.midiChannleVoiceMessage(0xC0, data1, data2, channel);
-}
-
-void printUsage() {
-    Serial.println("------------------ usage ------------------");
-    Serial.println("press: ");
-    Serial.println("   'r' : reset control keys ");
-    Serial.println("   'l' : load project ");
-    Serial.println("   's' : save project ");
-    Serial.println("-------------------------------------------");
-    Serial.println();
+    sampler.trigger(pitch, channel, velocity, false);
 }

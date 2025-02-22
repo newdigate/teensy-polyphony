@@ -42,72 +42,81 @@ public:
 
     AudioEffectEnvelope *_envelop = nullptr;
     AudioSynthKarplusStrong *_strings = nullptr;
+
+    bool isPlaying() {
+        return true;
+    }
 };
 
-class stringsampler {
+class stringnote {
 public:
-    stringsampler() : _polysampler() {
-        _polysampler.setNoteEventCallback( [&] (uint8_t voice, uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn, bool retrigger) {
-            // ignore noteChannel
-            noteEventCallback(voice, noteNumber, velocity, isNoteOn, retrigger);
-        });
+    float _freq;
+};
+
+class stringsampler : polyphonicsampler<stringvoice, stringnote> {
+public:
+    stringsampler(polyphonic<stringvoice> polyphony) : 
+        polyphonicsampler<stringvoice, stringnote>(polyphony)
+    {
     }
 
-    void noteEvent(uint8_t noteNumber, uint8_t noteChannel, uint8_t velocity, bool isNoteOn, bool retrigger) {
-        if (isNoteOn && velocity > 0)
-            _polysampler.noteOn(noteNumber, velocity, noteChannel);
-        else 
-            _polysampler.noteOff(noteNumber, noteChannel);
-    }
+    stringsampler(const stringsampler&) = delete;
     
-    void addVoice(AudioSynthKarplusStrong  &strings) {
-        stringvoice *voice = new stringvoice(&strings);
-        addVoice(voice) ;
-    }
-    
-    void addVoice(AudioSynthKarplusStrong  &strings, AudioEffectEnvelope &envelope) {
-        stringvoice *voice = new stringvoice(&strings, &envelope);
-        addVoice(voice) ;
+    virtual ~stringsampler() {}
+
+    virtual bool noteDownEventCallback(stringvoice *voice, stringnote *sample, uint8_t noteNumber, uint8_t noteChannel, uint8_t noteVelocity, bool retrigger){
+        if (voice == nullptr)
+            return false;
+
+        voice->_strings->noteOn(sample->_freq, noteVelocity/255.0);
+        if (voice->_envelop != nullptr)
+            voice->_envelop->noteOn();
+
+        return true;
     }
 
-    void turnOffAllNotesStillPlaying() {
-        _polysampler.turnOffAllNotesStillPlaying();
+    virtual void noteUpBeginEventCallback(stringvoice *voice, stringnote *sample, uint8_t noteNumber, uint8_t noteChannel) {
+        if (voice->_envelop != nullptr)
+            voice->_envelop->noteOff();
     }
+
+    virtual void noteEndBeginEventCallback(stringvoice *voice, stringnote *sample, uint8_t noteNumber, uint8_t noteChannel) {
+        voice->_strings->noteOff(0);
+    }
+    
+    virtual bool isVoiceStillActive(stringvoice *voice, stringnote *sample, uint8_t noteNumber, uint8_t noteChannel)
+    {
+       return true;
+    }
+
+    virtual bool isVoiceStillNoteDown(stringvoice *voice, stringnote *sample, uint8_t noteNumber, uint8_t noteChannel) {
+        return true;
+    }
+
+    virtual stringnote* findSampleCallback(uint8_t noteNumber, uint8_t noteChannel) {
+        stringnote *result = new stringnote();
+        result->_freq = calcFrequency(noteNumber);
+        return result;
+    }
+
+    virtual triggertype findTriggerType(uint8_t noteNumber, uint8_t noteChannel) {
+        return _staticTriggerType;
+    }
+
+    void noteUpBeginEvent(stringvoice *voice, stringnote *sample, uint8_t noteNumber, uint8_t noteChannel) {
+        voice->_envelop->noteOff();
+    }
+
+    void noteUpEndEvent(stringvoice *voice, stringnote *sample, uint8_t noteNumber, uint8_t noteChannel) {
+        voice->_strings->noteOff(0);
+    }
+
 
 private:
-    uint8_t _numVoices = 0;
-    std::vector<stringvoice*> _voices;
-    polyphonicsampler _polysampler;
     
     static float calcFrequency(uint8_t note) {
         float result = 440.0 * powf(2.0, (note-69) / 12.0);
         return result;
-    }
-
-    void noteEventCallback(uint8_t voice, uint8_t noteNumber, uint8_t velocity, bool isNoteOn, bool retrigger)
-    {
-        if (voice < _numVoices) {
-            if (isNoteOn) {
-                float freq = calcFrequency(noteNumber);
-
-                if (_voices[voice]->_envelop != nullptr) {
-                    _voices[voice]->_envelop->noteOn();
-                }
-                _voices[voice]->_strings->noteOn(freq, velocity/127.0);
-            } else {
-                // Note off event
-                if (_voices[voice]->_envelop != nullptr) {
-                    _voices[voice]->_envelop->noteOff();
-                }
-            }
-        }
-    }
-
-    void addVoice(stringvoice *voice){
-        _voices.push_back(voice);
-        //_voices.begin();
-        _numVoices++;
-        _polysampler.setNumVoices(_numVoices);
     }
 };
 
