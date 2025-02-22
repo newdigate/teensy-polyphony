@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(teensysequencer)
+project(teensypolyphony)
 include(cmake/cmake_declare_and_fetch.cmake.in)
 
 if (NOT DEFINED TEENSY_VERSION)
