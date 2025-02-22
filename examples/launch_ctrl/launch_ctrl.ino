@@ -83,7 +83,6 @@ void setup() {
 
 void loop() {
   myusb.Task();
-  midi1.read();
 }
 
 void handleNoteOn(byte channel, byte pitch, byte velocity)
@@ -93,14 +92,15 @@ void handleNoteOn(byte channel, byte pitch, byte velocity)
     // otherwise it would slow down the loop() and have a bad impact
     // on real-time performance.
     byte pitchMapped = pitch + ((channel-1) * 5);
-    sampler.trigger(pitchMapped, velocity, true, false);
-    Serial.printf("Its alive...ch:%d pitch:%d vel:%d\n", channel, pitch, velocity);
+    sampler.trigger(pitchMapped, 0, velocity, true);
 }
 
 void handleNoteOff(byte channel, byte pitch, byte velocity)
 {
     // Do something when the note is released.
     // Note that NoteOn messages with 0 velocity are interpreted as NoteOffs.
+    byte pitchMapped = pitch + ((channel-1) * 5);
+    sampler.trigger(pitchMapped, 0, velocity, false);
 }
 
 uint16_t getNumWavFilesInDirectory(char *directory) {

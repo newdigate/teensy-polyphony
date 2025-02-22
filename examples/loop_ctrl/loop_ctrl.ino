@@ -43,7 +43,7 @@ samplermodel<sdsampleplayernote> model;
 audiovoicepolyphonic<AudioPlaySdResmp> polyphony;
 newdigate::MyLoopSampler              sampler(model, polyphony);
 
-audiovoice<AudioPlaySdResmp>         *_voices[NUM_VOICES] = {
+audiovoice<AudioPlaySdResmp>         *voices[NUM_VOICES] = {
         new audiovoice<AudioPlaySdResmp>(&playSdWav1),
         new audiovoice<AudioPlaySdResmp>(&playSdWav2),
         new audiovoice<AudioPlaySdResmp>(&playSdWav3),
@@ -68,17 +68,17 @@ void setup() {
     }
     tft.initR(INITR_144GREENTAB);
     tft.setRotation(3);
-    myusb.begin();
+    USBHost::begin();
 
     midi1.setHandleNoteOff(handleNoteOff);
     midi1.setHandleNoteOn(handleNoteOn);
 
-    polyphony.addVoices(_voices, NUM_VOICES);
+    polyphony.addVoices(voices, NUM_VOICES);
 }
 
 void loop() {
-  myusb.Task();
-  midi1.read();
+    myusb.Task();
+    midi1.read();
 }
 
 void handleNoteOn(byte channel, byte pitch, byte velocity) {

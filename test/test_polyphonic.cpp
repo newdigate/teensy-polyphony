@@ -18,6 +18,7 @@ BOOST_AUTO_TEST_SUITE(test_polyphony)
         AudioPlaySdWav wav4;
 
         polyphonic<AudioPlaySdWav> poly;
+        poly.setCheckForUnsedVoices(false);
 
         poly.addVoice(wav1);
         poly.addVoice(wav2);

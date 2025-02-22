@@ -63,16 +63,16 @@ public:
                 return &v->_voice;
             }
         } 
-
-        for (auto v : _voices) {
-            if ( v->_isActive) {
-                if( ! (&v->_voice)->isPlaying() ) {
-                    Serial.printf("reuse voice. %d\n", _voicesInUse);
-                    return &v->_voice;
+        if (_checkForUnusedVoices) {
+            for (auto v: _voices) {
+                if (v->_isActive) {
+                    if (!(&v->_voice)->isPlaying()) {
+                        Serial.printf("reuse voice. %d\n", _voicesInUse);
+                        return &v->_voice;
+                    }
                 }
-            } 
+            }
         }
-
         return nullptr;
     }
 
@@ -114,9 +114,13 @@ public:
         }
     }
 
+    void setCheckForUnsedVoices(bool checkForUnusedVoices) {
+        _checkForUnusedVoices = checkForUnusedVoices;
+    }
 private:
     std::vector<voice_usage<TVoice> *> _voices;
     volatile int _voicesInUse = 0;
+    bool _checkForUnusedVoices = true;
 };
 
 #endif //TEENSYAUDIO_LAUNCHCTRL_POLYPHONIC_H
