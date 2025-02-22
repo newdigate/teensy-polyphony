@@ -58,38 +58,52 @@ AudioConnection          patchCord20(mixer3, 0, i2s1, 1);
 AudioControlSGTL5000     sgtl5000_1;     //xy=887,463
 // GUItool: end automatically generated code
 
-arraysampler             _sampler;
-AudioPlayArrayResmp *voices[] = {&voice1, &voice2, &voice3, &voice4, &voice5, &voice6, &voice7, &voice8};
+samplermodel<audiosample> model;
+polyphonic<audiovoice<AudioPlayArrayResmp>> polyphony;
+arraysampler             sampler(model, polyphony);
+audiovoice<AudioPlayArrayResmp> *voices[] = {
+        new audiovoice<AudioPlayArrayResmp>(&voice1, &envelope1, &mixer1, 0),
+        new audiovoice<AudioPlayArrayResmp>(&voice2, &envelope2, &mixer1, 1),
+        new audiovoice<AudioPlayArrayResmp>(&voice3, &envelope3, &mixer1, 2),
+        new audiovoice<AudioPlayArrayResmp>(&voice4, &envelope4, &mixer1, 3),
+        new audiovoice<AudioPlayArrayResmp>(&voice5, &envelope5, &mixer2, 0),
+        new audiovoice<AudioPlayArrayResmp>(&voice6, &envelope6, &mixer2, 1),
+        new audiovoice<AudioPlayArrayResmp>(&voice7, &envelope7, &mixer2, 2),
+        new audiovoice<AudioPlayArrayResmp>(&voice8, &envelope8, &mixer2, 3)};
 AudioEffectEnvelope *envelopes[] = {&envelope1, &envelope2, &envelope3, &envelope4, &envelope5, &envelope6, &envelope7, &envelope8  };
-
+audiosample *samples[] = {
+        new audiosample(KEY_NOTENUMBER_C1, 0, (int16_t*)piano_studio_octave0_raw, piano_studio_octave0_raw_len / 2, 2),
+        new audiosample(KEY_NOTENUMBER_C2, 0, (int16_t*)piano_studio_octave1_raw, piano_studio_octave1_raw_len / 2, 2),
+        new audiosample(KEY_NOTENUMBER_C3, 0, (int16_t*)piano_studio_octave2_raw, piano_studio_octave2_raw_len / 2, 2),
+};
 void handleNoteOn(uint8_t channel, uint8_t pitch, uint8_t velocity)
 {
-    _sampler.noteEvent(pitch, velocity, true, false);
+    sampler.trigger(pitch, velocity, true, false);
 }
 
 void handleNoteOff(uint8_t channel, uint8_t pitch, uint8_t velocity)
 {
-    _sampler.noteEvent(pitch, velocity, false, false);
+    sampler.trigger(pitch, velocity, false, false);
 }
 
 void setup() {
     for (int i=0; i<8; i++) {
-        voices[i]->enableInterpolation(true);
+        voices[i]->_audioplayarray->enableInterpolation(true);
         envelopes[i]->attack(0);
     }
 
-    _sampler.addVoice( voice1, mixer1, 0, envelope1);
-    _sampler.addVoice( voice2, mixer1, 1, envelope2);
-    _sampler.addVoice( voice3, mixer1, 2, envelope3);
-    _sampler.addVoice( voice4, mixer1, 3, envelope4);
-    _sampler.addVoice( voice5, mixer2, 0, envelope5);
-    _sampler.addVoice( voice6, mixer2, 1, envelope6);
-    _sampler.addVoice( voice7, mixer2, 2, envelope7);
-    _sampler.addVoice( voice8, mixer2, 3, envelope8);
+    polyphony.addVoice( *voices[0] );
+    polyphony.addVoice( *voices[1] );
+    polyphony.addVoice( *voices[2] );
+    polyphony.addVoice( *voices[3] );
+    polyphony.addVoice( *voices[4] );
+    polyphony.addVoice( *voices[5] );
+    polyphony.addVoice( *voices[6] );
+    polyphony.addVoice( *voices[0] );
 
-    _sampler.addSample(KEY_NOTENUMBER_C1, (int16_t *)piano_studio_octave0_raw, piano_studio_octave0_raw_len / 2, 2);
-    _sampler.addSample(KEY_NOTENUMBER_C2, (int16_t *)piano_studio_octave1_raw, piano_studio_octave1_raw_len / 2, 2);
-    _sampler.addSample(KEY_NOTENUMBER_C3, (int16_t *)piano_studio_octave2_raw, piano_studio_octave2_raw_len / 2, 2);
+    model.allocateNote(0, KEY_NOTENUMBER_C1, samples[0]);
+    model.allocateNote(0, KEY_NOTENUMBER_C2, samples[1]);
+    model.allocateNote(0, KEY_NOTENUMBER_C3, samples[2]);
 
     MIDI.setHandleNoteOn(handleNoteOn);  
     MIDI.setHandleNoteOff(handleNoteOff);

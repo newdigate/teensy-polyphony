@@ -52,8 +52,7 @@ public:
     typedef std::map<uint8_t, std::map<uint8_t, std::vector<TMappingType*>*>*> TChannelNoteMapType;
 
     channelNoteMapping() : 
-        _activeNotesPerChannel(),
-        io_mutex()
+        _activeNotesPerChannel()
     {
     }
 
@@ -63,8 +62,6 @@ public:
     }
 
     TMappingType* findFirst(uint8_t noteNumber, uint8_t noteChannel) {
-        std::lock_guard<std::mutex> lock(io_mutex);
-
         if (_activeNotesPerChannel.find(noteChannel) != _activeNotesPerChannel.end()  ) {
             std::map<uint8_t, std::vector<TMappingType*>*> *activeNotesForChannel = _activeNotesPerChannel[noteChannel];
 
@@ -81,8 +78,6 @@ public:
     void add(TMappingType *activeNote, uint8_t noteNumber, uint8_t noteChannel ) {
         if (activeNote == nullptr)
             return;
-
-        std::lock_guard<std::mutex> lock(io_mutex);
 
         std::map<uint8_t, std::vector<TMappingType*>*> *activeNotesForChannel = nullptr;
         if (_activeNotesPerChannel.find(noteChannel) == _activeNotesPerChannel.end()  ) {
@@ -105,8 +100,6 @@ public:
     }
 
     void remove(TMappingType *activeNote, uint8_t noteNumber, uint8_t noteChannel ) {
-        std::lock_guard<std::mutex> lock(io_mutex);
-
         if (_activeNotesPerChannel.find(noteChannel) != _activeNotesPerChannel.end()  ) {
             std::map<uint8_t, std::vector<TMappingType*>*> *activeNotesForChannel = _activeNotesPerChannel[noteChannel];
             if (  (*activeNotesForChannel).find(noteNumber) != (*activeNotesForChannel).end()  ) {
@@ -123,14 +116,12 @@ public:
     }
 
     void getActiveChannels( std::vector<uint8_t> &vec ) {
-        std::lock_guard<std::mutex> lock(io_mutex);
         for (auto && activeNote : _activeNotesPerChannel) {
             vec.push_back(activeNote.first);
         }
     }
 
     void getActiveNotesForChannel(uint8_t noteChannel, std::vector<uint8_t> &vec) {
-        std::lock_guard<std::mutex> lock(io_mutex);
 
         if (_activeNotesPerChannel.find(noteChannel) != _activeNotesPerChannel.end()  ) {
             std::map<uint8_t, std::vector<TMappingType*>*> *activeNotesForChannel = _activeNotesPerChannel[noteChannel];
@@ -142,8 +133,6 @@ public:
     }
 
     void getActiveNotesForChannelAndNote(uint8_t noteChannel, uint8_t noteNumber, std::vector<TMappingType*> &vec) {
-        std::lock_guard<std::mutex> lock(io_mutex);
-        
         if (_activeNotesPerChannel.find(noteChannel) != _activeNotesPerChannel.end()  ) {
             std::map<uint8_t, std::vector<TMappingType*>*> *activeNotesForChannel = _activeNotesPerChannel[noteChannel];
             if (  (*activeNotesForChannel).find(noteNumber) != (*activeNotesForChannel).end()  ) {
@@ -157,7 +146,6 @@ public:
 
 private:
     TChannelNoteMapType         _activeNotesPerChannel;
-    std::mutex                  io_mutex;
 };
 
 template <typename TVoice, typename TSample>

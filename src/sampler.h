@@ -327,8 +327,8 @@ public:
     }
     
     virtual bool isVoiceStillActive(audiovoice<TVoice> *voice, TSample *sample, uint8_t noteNumber, uint8_t noteChannel) override {
-        if (voice->_audioenvelop != nullptr)
-            return !voice->_audioenvelop->isIdleOrComplete() && voice->_audioplayarray->isPlaying();
+        //if (voice->_audioenvelop != nullptr)
+        //    return !voice->_audioenvelop->isIdleOrComplete() && voice->_audioplayarray->isPlaying();
         return voice->_audioplayarray->isPlaying();
     }
 

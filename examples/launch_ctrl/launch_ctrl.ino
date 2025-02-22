@@ -3,16 +3,18 @@
 #include <Audio.h>
 #include <TeensyPolyphony.h>
 #include "USBHost_t36.h"
+#include "sdsampleplayernote.h"
+#include "MySampler.h"
 
 USBHost myusb;
 MIDIDevice midi1(myusb);
 
 #define NUM_VOICES 4
 // GUItool: begin automatically generated code
-AudioPlaySdWav           playSdWav3;     //xy=340.0000457763672,459.0000305175781
-AudioPlaySdWav           playSdWav2;     //xy=340.0000305175781,382.0000305175781
-AudioPlaySdWav           playSdWav4;     //xy=340.0000457763672,536
-AudioPlaySdWav           playSdWav1;     //xy=340.0000419616699,302.0000238418579
+AudioPlaySdResmp           playSdWav3;     //xy=340.0000457763672,459.0000305175781
+AudioPlaySdResmp           playSdWav2;     //xy=340.0000305175781,382.0000305175781
+AudioPlaySdResmp           playSdWav4;     //xy=340.0000457763672,536
+AudioPlaySdResmp           playSdWav1;     //xy=340.0000419616699,302.0000238418579
 AudioMixer4              mixerLeft;      //xy=650.0000419616699,404.0000238418579
 AudioMixer4              mixerRight;     //xy=650.0000610351562,511.0000305175781
 AudioOutputTDM           tdm_out;        //xy=958.0000610351562,466.0000305175781
@@ -29,9 +31,15 @@ AudioConnection          patchCord10(mixerRight, 0, tdm_out, 2);
 AudioControlCS42448      audioShield;
 
 // GUItool: end automatically generated code
-
-unpitchedsdwavsampler    _sampler;
-AudioPlaySdWav           *_voices[NUM_VOICES] = {&playSdWav1, &playSdWav2, &playSdWav3, &playSdWav4};
+polyphonic<audiovoice<AudioPlaySdResmp>> polyphony;
+samplermodel<audiosample> samplerModel;
+sdsampler    sampler(samplerModel, polyphony);
+audiovoice<AudioPlaySdResmp>           *_voices[NUM_VOICES] = {
+        new audiovoice<AudioPlaySdResmp>(&playSdWav1),
+        new audiovoice<AudioPlaySdResmp>(&playSdWav2),
+        new audiovoice<AudioPlaySdResmp>(&playSdWav3),
+        new audiovoice<AudioPlaySdResmp>(&playSdWav4)
+};
 
 uint16_t getNumWavFilesInDirectory(char *directory);
 void populateFilenames(char *directory);
@@ -59,16 +67,15 @@ void setup() {
     Serial.printf("Num wave files: %d\n", _numWaveFiles);
     _filenames = new char*[_numWaveFiles];
     populateFilenames("/");
-    
     myusb.begin();
 
     midi1.setHandleNoteOff(handleNoteOff);
     midi1.setHandleNoteOn(handleNoteOn);
     //midi1.setHandleControlChange(OnControlChange);
 
-    _sampler.addVoices(_voices, NUM_VOICES);
+    polyphony.addVoices(_voices, NUM_VOICES);
     for (int i=0; i < _numWaveFiles; i++) {
-        _sampler.addSample(53+i, _filenames[i]);
+        samplerModel.allocateNote(0, 53+i, new audiosample(53,0, _filenames[i], 1));
     }
     
     Serial.println("setup done");
@@ -86,7 +93,7 @@ void handleNoteOn(byte channel, byte pitch, byte velocity)
     // otherwise it would slow down the loop() and have a bad impact
     // on real-time performance.
     byte pitchMapped = pitch + ((channel-1) * 5);
-    _sampler.noteEvent(pitchMapped, velocity, true, false);
+    sampler.trigger(pitchMapped, velocity, true, false);
     Serial.printf("Its alive...ch:%d pitch:%d vel:%d\n", channel, pitch, velocity);
 }
 
