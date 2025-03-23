@@ -5,6 +5,7 @@
 #include "playarrayresmp.h"
 #include "sampler.h"
 #include "audiovoicepolyphonic.h"
+#include "output_soundio.h"
 #define NUM_VOICES 10
 #define KEY_NOTENUMBER_C1 36
 
@@ -12,7 +13,7 @@
 AudioPlayArrayResmp      voice0; 
 AudioPlayArrayResmp      voice1; 
 
-AudioOutputI2S           i2s1;           //xy=675,518
+AudioOutputSoundIO           i2s1;           //xy=675,518
 AudioConnection          patchCord1(voice0, 0, i2s1, 0);
 AudioConnection          patchCord2(voice1, 0, i2s1, 1);
 AudioControlSGTL5000     sgtl5000_1;     //xy=521,588

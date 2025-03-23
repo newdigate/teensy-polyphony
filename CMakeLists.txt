@@ -36,7 +36,7 @@ if (NOT DEFINED BUILD_FOR_LINUX)
 else()
     DeclareAndFetch(teensy_x86_stubs            https://github.com/newdigate/teensy-x86-stubs.git main src)
     DeclareAndFetch(teensy_x86_sd_stubs         https://github.com/newdigate/teensy-x86-sd-stubs main src)
-    DeclareAndFetch(teensy_audio_x86_stubs      https://github.com/newdigate/teensy-audio-x86-stubs main src)
+    DeclareAndFetch(teensy_audio_x86_stubs      https://github.com/newdigate/teensy-audio-x86-stubs main "src extras/soundio/src")
     DeclareAndFetch(teensy_variable_playback    https://github.com/newdigate/teensy-variable-playback master src)
 
     add_subdirectory(src)
