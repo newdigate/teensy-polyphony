@@ -23,7 +23,7 @@ BOOST_AUTO_TEST_SUITE(test_mysampler)
     SDClass sd = SDClass("/Users/nicholasnewdigate/Development/sampler");
 
     BOOST_FIXTURE_TEST_CASE(mysampler_test, PolyphonicFixture) {
-
+        AudioConnection::reset();
         #pragma region audio graph
         // GUItool: begin automatically generated code
         AudioPlaySdResmp        voice0(sd); 

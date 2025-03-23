@@ -23,6 +23,8 @@ BOOST_AUTO_TEST_SUITE(test_polyphonic_sampler)
     #define NUM_VOICES 10
     #define KEY_NOTENUMBER_C1 36
     BOOST_FIXTURE_TEST_CASE(basic_polyphonic_sampler_test, PolyphonicFixture) {
+        AudioConnection::reset();
+
         // GUItool: begin automatically generated code
         AudioPlayArrayResmp      voice0; 
         AudioPlayArrayResmp      voice1; 

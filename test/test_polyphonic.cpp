@@ -12,6 +12,8 @@
 BOOST_AUTO_TEST_SUITE(test_polyphony)
 
     BOOST_FIXTURE_TEST_CASE(basic_test, PolyphonicFixture) {
+        AudioConnection::reset();
+
         AudioPlaySdWav wav1;
         AudioPlaySdWav wav2;
         AudioPlaySdWav wav3;
