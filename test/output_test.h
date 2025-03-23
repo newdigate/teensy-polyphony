@@ -1,5 +1,5 @@
-#ifndef output_test_h_
-#define output_test_h_
+#ifndef TEENSY_POLYPHONY_TESTS_OUTPUT_TEST_H
+#define TEENSY_POLYPHONY_TESTS_OUTPUT_TEST_H
 
 #include <Arduino.h>
 #include <AudioStream.h>
